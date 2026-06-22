@@ -10,7 +10,7 @@
 #endif
 
 // 🌍 URL RAW DO SEU REPOSITÓRIO ONDE MORA O CÓDIGO DA CLI
-#define URL_CLI "https://raw.githubusercontent.com/MichelRochytor/KOSMOSUI-INSTALLER/main/kosmos-cli.c"
+#define URL_CLI "https://raw.githubusercontent.com/MichelRochytor/KosmosUI-Installer/main/kosmos-cli.c"
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
@@ -31,14 +31,30 @@ int main(int argc, char* argv[]) {
     // 2. Valida e instala o GCC via Winget se o usuário estiver zerado
     if (system("gcc --version > nul 2>&1") != 0) {
         printf("⚠️  Compilador GCC não detectado no Windows!\n");
-        printf("🔧 Baixando e configurando o MinGW-w64 via Winget de forma silenciosa...\n");
-        system("winget install GNU.GCC --silent --accept-package-agreements --accept-source-agreements");
+        printf("🔧 Atualizando repositórios do Winget...\n");
+        system("winget source update");
+        
+        printf("🔧 Baixando e configurando o MinGW-w64 de forma silenciosa...\n");
+        int rWinget = system("winget install GNU.GCC --silent --accept-package-agreements --accept-source-agreements");
+        
+        if (rWinget == 0) {
+            printf("\n✅ GCC instalado com sucesso via Winget!\n");
+            printf("👉 O Windows precisa atualizar as variáveis de ambiente do sistema.\n");
+            printf("❌ Por favor, FECHE esta janela, abra um NOVO terminal e execute o 'instalar.exe' novamente para concluir!\n\n");
+            system("pause");
+            return 0; // Para a execução aqui para o usuário reiniciar o prompt
+        } else {
+            printf("❌ Erro: Não foi possível instalar o GCC automaticamente via Winget.\n");
+            printf("💡 Por favor, instale o MinGW-w64 manualmente e adicione-o ao PATH.\n");
+            system("pause");
+            return 1;
+        }
     }
 
     printf("🌐 [1/3] Baixando a CLI estável direto do GitHub Releases...\n");
-    // Usa o PowerShell nativo do Windows em background para baixar o arquivo fonte isolado
+    // 🌟 CORREÇÃO: Removeu o -Quiet inválido e desativou a progress bar nativa do PowerShell
     char cmdDlWin[1024];
-    sprintf(cmdDlWin, "powershell -Command \"Invoke-WebRequest -Uri '%s' -OutFile '%%TEMP%%\\kosmos-cli.c' -Quiet\"", URL_CLI);
+    sprintf(cmdDlWin, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%s' -OutFile '$env:TEMP\\kosmos-cli.c'\"", URL_CLI);
     system(cmdDlWin);
 
     printf("🔨 [2/3] Compilando e otimizando o motor localmente...\n");
@@ -63,12 +79,9 @@ int main(int argc, char* argv[]) {
 
 #else
     // ================= FLUXO STANDALONE LINUX (ZORIN OS) =================
-    
-    // Se o usuário clicar duas vezes pelo gerenciador de arquivos do Linux,
-    // o binário detecta a ausência de TTY e se auto-injeta dentro de uma janela gráfica do Gnome Terminal
     if (!isatty(STDIN_FILENO)) {
         char cmdTerminal[1024];
-        sprintf(cmdTerminal, "gnome-terminal -- \"%s\"", argv[0]);
+        sprintf(cmdTerminal, "gnome-terminal -- \"%%s\"", argv[0]);
         system(cmdTerminal);
         return 0;
     }
@@ -83,12 +96,11 @@ int main(int argc, char* argv[]) {
 
     printf("🌐 [1/3] Buscando árvore estável da CLI via cURL/Wget...\n");
     system("mkdir -p $HOME/.local/bin");
-    // Tenta baixar usando o wget ou curl (o que estiver disponível nativamente na distro)
     system("wget -q " URL_CLI " -O /tmp/kosmos-cli.c 2>/dev/null || curl -sL " URL_CLI " -o /tmp/kosmos-cli.c");
 
     printf("🔨 [2/3] Compilando CLI global em ~/.local/bin/kosmos...\n");
     int rLin = system("gcc /tmp/kosmos-cli.c -o $HOME/.local/bin/kosmos");
-    system("rm -f /tmp/kosmos-cli.c"); // Limpeza
+    system("rm -f /tmp/kosmos-cli.c");
 
     if (rLin != 0) {
         printf("❌ Erro fatal durante a compilação do kosmos-cli.c nativo.\n");
