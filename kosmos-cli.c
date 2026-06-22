@@ -145,7 +145,7 @@ void criarAmbienteVscode(const char* nomeProjeto) {
         fprintf(p, "{\n  \"configurations\": [\n    {\n      \"name\": \"Linux-MinGW-w64\",\n");
         fprintf(p, "      \"includePath\": [\"${workspaceFolder}/**\", \"/usr/x86_64-w64-mingw32/include\", \"/usr/share/mingw-w64/include\", \"${workspaceFolder}/tools/kosmos/**\"],\n");
         fprintf(p, "      \"defines\": [\"_WIN32_WINNT=0x0A00\", \"WINVER=0x0A00\", \"UNICODE\", \"_UNICODE\", \"__linux__\", \"_WIN32\"],\n");
-        fprintf(p, "      \"compilerPath\": \"/usr/bin/x86_64-w64-mingw32/include\", \"cStandard\": \"c17\", \"cppStandard\": \"gnu++17\", \"intelliSenseMode\": \"linux-gcc-x64\",\n");
+        fprintf(p, "      \"compilerPath\": \"/usr/bin/x86_64-w64-mingw32-gcc\", \"cStandard\": \"c17\", \"cppStandard\": \"gnu++17\", \"intelliSenseMode\": \"linux-gcc-x64\",\n");
         fprintf(p, "      \"browse\": { \"path\": [\"/usr/x86_64-w64-mingw32/include\", \"${workspaceFolder}\"], \"limitSymbolsToIncludedHeaders\": true }\n    }\n  ],\n  \"version\": 4\n}");
 #endif
         fclose(p);
@@ -248,7 +248,6 @@ void compilarProjeto(const char* nome) {
         
         printf("\n[1/7] Limpando build anterior...\n");
         char cmdClean[512];
-        // 🌟 CORREÇÃO: Limpo de vez o "I" intruso!
         sprintf(cmdClean, "if exist \"%s\\output\\linux\\%s.AppDir\" rmdir /S /Q \"%s\\output\\linux\\%s.AppDir\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdClean);
         
         char cmdMk[512];
@@ -257,6 +256,7 @@ void compilarProjeto(const char* nome) {
 
         printf("[2/7] Copiando executável Windows do projeto (%s)...\n", arquivoSaida);
         char cmdCp[512];
+        // 🌟 CORREÇÃO: Trocado de '&s' para '%s' para copiar o arquivo nativo de verdade
         sprintf(cmdCp, "copy /Y \"%s\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\%s.exe\" > nul", arquivoSaida, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
 
         char cmdCheckRes[512];
@@ -355,7 +355,6 @@ void compilarProjeto(const char* nome) {
 
         printf("[7/7] Empacotando AppImage...\n");
         char cmdMksquash[1024];
-        // 🌟 CORREÇÃO SUPREMA: Aspas externas balanceadas com duplos escaneamentos (\"\"...\"\") de ponta a ponta
         sprintf(cmdMksquash, "\"\"%s\\mksquashfs.exe\" \"%s\\output\\linux\\%s.AppDir\" \"%s\\output\\linux\\fs.squashfs\" -root-owned -noappend -comp xz -b 1M\"\"", pastaMsys, pathPrefixo, nomeExecutavel, pathPrefixo);
         int rSquash = system(cmdMksquash);
         
@@ -379,7 +378,12 @@ void compilarProjeto(const char* nome) {
 
         printf("\n🚀 [AUTO-RUN] Executando binário nativo do Windows local agora...\n");
         char cmdRunWin[512];
-        sprintf(cmdRunWin, "\"%s\"", arquivoSaida);
+        // 🌟 CORREÇÃO DE DIRETÓRIO: Dá um 'cd' na pasta do projeto antes do app iniciar para achar o 'resource/' nativo
+        if (strcmp(nome, ".") == 0) {
+            sprintf(cmdRunWin, "\"%s\"", arquivoSaida);
+        } else {
+            sprintf(cmdRunWin, "cd \"%s\" && \"output\\%s.exe\"", pathPrefixo, nomeExecutavel);
+        }
         system(cmdRunWin);
     } else {
         printf("❌ Erro durante o build local do Windows.\n");
@@ -411,7 +415,7 @@ void compilarProjeto(const char* nome) {
     int r4 = system(cmdPackage);
 
     if (r1 == 0 && r2 == 0 && r3 == 0 && r4 == 0) {
-        printf("Campanha: ✅ [Sucesso] Sequência de build executada com êxito! Projeto \"%s\" pronto.\n", nomeExecutavel);
+        printf("✅ [Sucesso] Sequência de build executada com êxito! Projeto \"%s\" pronto.\n", nomeExecutavel);
         printf("🚀 [AUTO-RUN] Executando pacote AppImage isolado agora...\n");
         char cmdRunLinux[512];
         if (strcmp(nome, ".") == 0) {
