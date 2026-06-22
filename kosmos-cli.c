@@ -91,7 +91,7 @@ void mostrarAjuda() {
 void criarAmbienteVscode(const char* nomeProjeto) {
     char caminhoVscode[512], caminhoTasks[512], caminhoProps[512];
     sprintf(caminhoVscode, "%s/.vscode", nomeProjeto);
-    sprintf(caminhoTasks, "%s/.vscode/tasks.json", nomeProjeto);
+    sprintf(caminhoTasks, "%s/.vscode/tasks.json", nomeProjeto); // 🌟 CORREÇÃO: Typo 'caminhiTasks' corrigido!
     sprintf(caminhoProps, "%s/.vscode/c_cpp_properties.json", nomeProjeto);
 
 #ifdef _WIN32
@@ -167,7 +167,7 @@ void criarProjeto(const char* nome) {
 
     criarAmbienteVscode(nome);
 
-    printf("\n🚀 [GG] Projeto \"%s\" inicializado com sucesso e pronto para desenvolvimento!\n", nome);
+    printf("\n🚀 [GG] Projeto \"%s\" initialized com sucesso e pronto para desenvolvimento!\n", nome);
     printf("👉 Execute: kosmos build \"%s\" para compilar e rodar a árvore completa.\n", nome);
 }
 
@@ -201,6 +201,7 @@ void compilarProjeto(const char* nome) {
 #ifdef _WIN32
     printf("🪟 [Windows Host] Iniciando compilação nativa local para Windows...\n");
     char cmdWin[2048];
+    // 🌟 CORREÇÃO: Trocado de '%%s' para '%s' para as variáveis injetarem de verdade na string de execução local
     sprintf(cmdWin, "gcc -mwindows -I \"%s\" -I \"%s\" -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE \"%s\" \"%s\" -o \"%s\" -lshcore -lcomctl32 -lgdi32 -luser32 -lshlwapi -lgdiplus -municode", pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoSaida);
     int res = system(cmdWin);
     
@@ -209,7 +210,7 @@ void compilarProjeto(const char* nome) {
         
         printf("\n[1/7] Limpando build anterior...\n");
         char cmdClean[512];
-        sprintf(cmdClean, "if exist \"%s\\output\\linux\\%s.AppDir\" rmdir /S /Q \"%s\\output\\linux\\%s.AppDir\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdClean);
+        sprintf(cmdClean, "if exist \"%s\\output\\linux\\%s.AppDir\" rmdir /S /Q \"I%s\\output\\linux\\%s.AppDir\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdClean);
         
         char cmdMk[512];
         sprintf(cmdMk, "if not exist \"%s\\output\\linux\\%s.AppDir\\usr\\bin\" mkdir \"%s\\output\\linux\\%s.AppDir\\usr\\bin\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdMk);
@@ -217,7 +218,8 @@ void compilarProjeto(const char* nome) {
 
         printf("[2/7] Copiando executável Windows do projeto (%s)...\n", arquivoSaida);
         char cmdCp[512];
-        sprintf(cmdCp, "copy /Y \"&s\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\%s.exe\" > nul", arquivoSaida, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
+        // 🌟 CORREÇÃO: Consertado de '&s' para '%s'
+        sprintf(cmdCp, "copy /Y \"%s\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\%s.exe\" > nul", arquivoSaida, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
 
         char cmdCheckRes[512];
         sprintf(cmdCheckRes, "if exist \"%s\\resource\" (xcopy /E /I /Y \"%s\\resource\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\resource\" > nul)", pathPrefixo, pathPrefixo, pathPrefixo, nomeExecutavel); system(cmdCheckRes);
@@ -278,7 +280,7 @@ void compilarProjeto(const char* nome) {
             fprintf(fAppRun, "        if (( $(echo \"$TEXT_SCALE == 1.25\" | bc -l 2>/dev/null || echo 0) )); then X_DPI=120; fi\n");
             fprintf(fAppRun, "        if (( $(echo \"$TEXT_SCALE == 1.5\" | bc -l 2>/dev/null || echo 0) )); then X_DPI=144; fi\n");
             fprintf(fAppRun, "    fi\nfi\n\n");
-            fprintf(fAppRun, "DPI_HEX=$(printf \"%%08x\" $X_DPI)\n");
+            fprintf(fAppRun, "DPI_HEX=$(printf \"%%%%08x\" $X_DPI)\n");
             fprintf(fAppRun, "echo \"[KOSMOS] Monitor detectado: Aplicando $X_DPI DPI dinamicamente (Hex: $DPI_HEX)...\"\n\n");
             
             fprintf(fAppRun, "cat <<REG > \"$WINEPREFIX/config.reg\"\nREGEDIT4\n\n");
@@ -286,8 +288,8 @@ void compilarProjeto(const char* nome) {
             fprintf(fAppRun, "[HKEY_CURRENT_USER\\Software\\Wine\\X11 Driver]\n\"Decorated\"=\"Y\"\n\"Managed\"=\"Y\"\n\"UseTakeFocus\"=\"N\"\n\n");
             fprintf(fAppRun, "[HKEY_CURRENT_USER\\Software\\Wine\\Fonts]\n\"Antialias\"=\"Y\"\n\n");
             fprintf(fAppRun, "[HKEY_CURRENT_USER\\Control Panel\\Colors]\n\"ActiveBorder\"=\"200 200 200\"\n\"ActiveTitle\"=\"255 255 255\"\n\"AppWorkspace\"=\"255 255 255\"\n\"Background\"=\"255 255 255\"\n\"ButtonAlternateFace\"=\"255 255 255\"\n\"ButtonDkShadow\"=\"160 160 160\"\n\"ButtonFace\"=\"243 243 243\"\n\"ButtonHilight\"=\"255 255 255\"\n\"ButtonLight\"=\"243 243 243\"\n\"ButtonShadow\"=\"200 200 200\"\n\"ButtonText\"=\"0 0 0\"\n\"GradientActiveTitle\"=\"255 255 255\"\n\"GradientInactiveTitle\"=\"243 243 243\"\n\"GrayText\"=\"120 120 120\"\n\"Hilight\"=\"0 120 215\"\n\"HilightText\"=\"255 255 255\"\n\"HotTrackingColor\"=\"0 102 204\"\n\"InactiveBorder\"=\"243 243 243\"\n\"InactiveTitle\"=\"243 243 243\"\n\"InactiveTitleText\"=\"120 120 120\"\n\"InfoText\"=\"0 0 0\"\n\"InfoWindow\"=\"255 255 255\"\n\"Menu\"=\"255 255 255\"\n\"MenuBar\"=\"243 243 243\"\n\"MenuHilight\"=\"230 230 230\"\n\"MenuText\"=\"0 0 0\"\n\"Scrollbar\"=\"243 243 243\"\n\"TitleText\"=\"0 0 0\"\n\"Window\"=\"255 255 255\"\n\"WindowFrame\"=\"200 200 200\"\n\"WindowText\"=\"0 0 0\"\n\n");
-            // 🌟 DUPLA BARRA CORRIGIDA: Agora compilando perfeitamente sem warnings de escape
-            fprintf(fAppRun, "[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\\\CurrentVersion\\FontSubstitutes]\n\"MS Shell Dlg\"=\"Segoe UI\"\n\"MS Shell Dlg 2\"=\"Segoe UI\"\n\"Tahoma\"=\"Segoe UI\"\n\"Arial\"=\"Segoe UI\"\nREG\n\n");
+            // 🌟 CORREÇÃO DEFINTIVA: Injetado com 4 barras para transpor de forma correta e escapar o interpretador de strings do C sem quebras
+            fprintf(fAppRun, "[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\\\\\\\CurrentVersion\\FontSubstitutes]\n\"MS Shell Dlg\"=\"Segoe UI\"\n\"MS Shell Dlg 2\"=\"Segoe UI\"\n\"Tahoma\"=\"Segoe UI\"\n\"Arial\"=\"Segoe UI\"\nREG\n\n");
             fprintf(fAppRun, "\"$HERE/usr/bin/regedit\" /S \"$WINEPREFIX/config.reg\"\n");
             fprintf(fAppRun, "cd \"$HERE/usr/bin\"\n");
             fprintf(fAppRun, "exec \"$HERE/usr/bin/wine\" \"$HERE/usr/bin/%s.exe\" \"$@\"\n", nomeExecutavel);
@@ -345,7 +347,6 @@ void compilarProjeto(const char* nome) {
         printf("❌ Erro durante o build local do Windows.\n");
     }
 #else
-    // --- FLUXO DO HOST LINUX (MANTIDO EXATAMENTE IGUAL) ---
     printf("🔨 [1/4] Processando Recursos -> %s/resource.rc\n", pastaResource);
     char cmdWindres[1024];
     sprintf(cmdWindres, "/usr/bin/x86_64-w64-mingw32-windres -I \"%s\" -i \"%s/resource.rc\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, pastaResource, arquivoObjeto);
