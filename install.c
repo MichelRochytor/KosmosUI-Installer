@@ -118,6 +118,6 @@ int main(int argc, char* argv[]) {
     printf("\nPressione Enter para concluir...");
     getchar();
 #endif
-    system("pause");
+
     return 0;
 }
