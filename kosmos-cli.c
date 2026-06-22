@@ -91,7 +91,7 @@ void mostrarAjuda() {
 void criarAmbienteVscode(const char* nomeProjeto) {
     char caminhoVscode[512], caminhoTasks[512], caminhoProps[512];
     sprintf(caminhoVscode, "%s/.vscode", nomeProjeto);
-    sprintf(caminhiTasks, "%s/.vscode/tasks.json", nomeProjeto);
+    sprintf(caminhoTasks, "%s/.vscode/tasks.json", nomeProjeto);
     sprintf(caminhoProps, "%s/.vscode/c_cpp_properties.json", nomeProjeto);
 
 #ifdef _WIN32
