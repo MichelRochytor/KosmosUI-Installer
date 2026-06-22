@@ -4,8 +4,10 @@
 #include <stdlib.h>
 
 #ifdef _WIN32
-    #define SEPARADOR "\\\\"
+    #include <windows.h>
+    #define SEPARADOR "\\"
 #else
+    #include <unistd.h>
     #define SEPARADOR "/"
 #endif
 
@@ -89,48 +91,67 @@ void mostrarAjuda() {
 }
 
 void criarAmbienteVscode(const char* nomeProjeto) {
-    char caminhoVscode[512], caminhoTasks[512], caminhoProps[512];
-    sprintf(caminhoVscode, "%s/.vscode", nomeProjeto);
-    sprintf(caminhoTasks, "%s/.vscode/tasks.json", nomeProjeto); // 🌟 CORREÇÃO: Typo 'caminhiTasks' corrigido!
-    sprintf(caminhoProps, "%s/.vscode/c_cpp_properties.json", nomeProjeto);
-
+    char caminhoVscode[512], caminhoTasks[512], caminhoProps[512], cmdMkdir[512];
+    
 #ifdef _WIN32
-    char cmdMkdir[512]; sprintf(cmdMkdir, "mkdir \"%s\"", caminhoVscode); system(cmdMkdir);
+    sprintf(caminhoVscode, "%s\\.vscode", nomeProjeto);
+    sprintf(caminhoTasks, "%s\\.vscode\\tasks.json", nomeProjeto);
+    sprintf(caminhoProps, "%s\\.vscode\\c_cpp_properties.json", nomeProjeto);
+    sprintf(cmdMkdir, "mkdir \"%s\"", caminhoVscode);
 #else
-    char cmdMkdir[512]; sprintf(cmdMkdir, "mkdir -p \"%s\"", caminhoVscode); system(cmdMkdir);
+    sprintf(caminhoVscode, "%s/.vscode", nomeProjeto);
+    sprintf(caminhoTasks, "%s/.vscode/tasks.json", nomeProjeto);
+    sprintf(caminhoProps, "%s/.vscode/c_cpp_properties.json", nomeProjeto);
+    sprintf(cmdMkdir, "mkdir -p \"%s\"", caminhoVscode);
 #endif
+    system(cmdMkdir);
 
     FILE* t = fopen(caminhoTasks, "w");
     if (t) {
+#ifdef _WIN32
+        // 🪟 Configuração de Tasks Nativa para o Host Windows
+        fprintf(t, "{\n  \"version\": \"2.0.0\",\n  \"tasks\": [\n");
+        fprintf(t, "    {\n      \"label\": \"KosmosUI: Build & Run (Windows)\",\n      \"type\": \"shell\",\n      \"command\": \"kosmos build\",\n");
+        fprintf(t, "      \"group\": { \"kind\": \"build\", \"isDefault\": true },\n");
+        fprintf(t, "      \"problemMatcher\": [\"$gcc\"],\n");
+        fprintf(t, "      \"presentation\": { \"echo\": true, \"reveal\": \"always\", \"focus\": true, \"panel\": \"shared\", \"clear\": true }\n    }\n  ]\n}");
+#else
+        // 🐧 Configuração de Tasks Cross-Compile para o Host Linux
         fprintf(t, "{\n  \"version\": \"2.0.0\",\n  \"tasks\": [\n");
         fprintf(t, "    {\n      \"label\": \"1. Compilar Recurso (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"/usr/bin/x86_64-w64-mingw32-windres\",\n");
         fprintf(t, "      \"args\": [\"-I\", \"${workspaceFolder}/resource\", \"-i\", \"${workspaceFolder}/resource/resource.rc\", \"-o\", \"${workspaceFolder}/output/resource.o\", \"-O\", \"coff\", \"-F\", \"pe-x86-64\"],\n");
         fprintf(t, "      \"group\": \"build\", \"problemMatcher\": [], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
-        
         fprintf(t, "    {\n      \"label\": \"3. Compilar Aplicação Principal (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"/usr/bin/x86_64-w64-mingw32-gcc\",\n");
         fprintf(t, "      \"args\": [\"-mwindows\", \"-I\", \"${workspaceFolder}/resource\", \"-I\", \"${workspaceFolder}/tools/kosmos\", \"-g\", \"-Wall\", \"-D_WIN32_WINNT=0x0A00\", \"-DWINVER=0x0A00\", \"-DUNICODE\", \"-D_UNICODE\", \"${workspaceFolder}/src/main.c\", \"${workspaceFolder}/tools/kosmos/kosmos.c\", \"${workspaceFolder}/output/resource.o\", \"-o\", \"${workspaceFolder}/output/%s.exe\", \"-lshcore\", \"-lcomctl32\", \"-lgdi32\", \"-luser32\", \"-lshlwapi\", \"-lgdiplus\", \"-static-libgcc\", \"-Wl,--subsystem,windows\", \"-municode\"],\n", nomeProjeto);
         fprintf(t, "      \"dependsOn\": [\"1. Compilar Recurso (Linux)\"], \"group\": \"build\", \"problemMatcher\": [\"$gcc\"], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
-        
         fprintf(t, "    {\n      \"label\": \"4. Aplicar Manifest (Wine)\",\n      \"type\": \"process\", \"command\": \"wine\",\n");
         fprintf(t, "      \"args\": [\"${workspaceFolder}/tools/msys/mt.exe\", \"-nologo\", \"-manifest\", \"Z:${workspaceFolder}/tools/kosmos/kosmos.exe.manifest\", \"-outputresource:Z:${workspaceFolder}/output/%s.exe;#1\"],\n", nomeProjeto);
         fprintf(t, "      \"options\": { \"env\": { \"WINEDEBUG\": \"-all\" } }, \"dependsOn\": \"3. Compilar Aplicação Principal (Linux)\", \"problemMatcher\": [], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
-        
         fprintf(t, "    {\n      \"label\": \"5. Gerar AppImage (Linux)\",\n      \"type\": \"shell\", \"command\": \"bash\", \"args\": [\"${workspaceFolder}/tools/package_linux.sh\", \"%s\"],\n", nomeProjeto);
-        fprintf(t, "      \"dependsOn\": [\"4. Aplicar Manifest (Wine)\", \"group\": \"build\", \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
-        
+        fprintf(t, "      \"dependsOn\": [\"4. Aplicar Manifest (Wine)\"], \"group\": \"build\", \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
         fprintf(t, "    {\n      \"label\": \"Build All & Run (Linux)\", \"dependsOn\": [\"5. Gerar AppImage (Linux)\"], \"dependsOrder\": \"sequence\", \"group\": { \"kind\": \"build\", \"isDefault\": true },\n");
         fprintf(t, "      \"type\": \"process\", \"command\": \"${workspaceFolder}/output/linux/%s-x86_64.AppImage\", \"args\": [],\n", nomeProjeto);
         fprintf(t, "      \"presentation\": { \"echo\": false, \"reveal\": \"never\", \"focus\": false, \"panel\": \"shared\", \"showReuseMessage\": false, \"clear\": true }\n    }\n  ]\n}", nomeProjeto);
+#endif
         fclose(t);
     }
 
     FILE* p = fopen(caminhoProps, "w");
     if (p) {
+#ifdef _WIN32
+        // 🪟 IntelliSense Nativo para Windows Host
+        fprintf(p, "{\n  \"configurations\": [\n    {\n      \"name\": \"Win32-GCC\",\n");
+        fprintf(p, "      \"includePath\": [\"${workspaceFolder}/**\", \"${workspaceFolder}/tools/kosmos/**\"],\n");
+        fprintf(p, "      \"defines\": [\"_WIN32_WINNT=0x0A00\", \"WINVER=0x0A00\", \"UNICODE\", \"_UNICODE\", \"_WIN32\"],\n");
+        fprintf(p, "      \"compilerPath\": \"gcc\", \"cStandard\": \"c17\", \"cppStandard\": \"gnu++17\", \"intelliSenseMode\": \"windows-gcc-x64\"\n    }\n  ],\n  \"version\": 4\n}");
+#else
+        // 🐧 IntelliSense Cross-Compile para Linux Host
         fprintf(p, "{\n  \"configurations\": [\n    {\n      \"name\": \"Linux-MinGW-w64\",\n");
         fprintf(p, "      \"includePath\": [\"${workspaceFolder}/**\", \"/usr/x86_64-w64-mingw32/include\", \"/usr/share/mingw-w64/include\", \"${workspaceFolder}/tools/kosmos/**\"],\n");
         fprintf(p, "      \"defines\": [\"_WIN32_WINNT=0x0A00\", \"WINVER=0x0A00\", \"UNICODE\", \"_UNICODE\", \"__linux__\", \"_WIN32\"],\n");
         fprintf(p, "      \"compilerPath\": \"/usr/bin/x86_64-w64-mingw32-gcc\", \"cStandard\": \"c17\", \"cppStandard\": \"gnu++17\", \"intelliSenseMode\": \"linux-gcc-x64\",\n");
         fprintf(p, "      \"browse\": { \"path\": [\"/usr/x86_64-w64-mingw32/include\", \"${workspaceFolder}\"], \"limitSymbolsToIncludedHeaders\": true }\n    }\n  ],\n  \"version\": 4\n}");
+#endif
         fclose(p);
     }
 }
@@ -167,7 +188,7 @@ void criarProjeto(const char* nome) {
 
     criarAmbienteVscode(nome);
 
-    printf("\n🚀 [GG] Projeto \"%s\" initialized com sucesso e pronto para desenvolvimento!\n", nome);
+    printf("\n🚀 [GG] Projeto \"%s\" inicializado com sucesso e pronto para desenvolvimento!\n", nome);
     printf("👉 Execute: kosmos build \"%s\" para compilar e rodar a árvore completa.\n", nome);
 }
 
@@ -178,6 +199,28 @@ void compilarProjeto(const char* nome) {
     char pathPrefixo[256];
     char pastaResource[512], pastaKosmos[512], pastaMsys[512], arquivoMain[512], arquivoCore[512], arquivoObjeto[512], arquivoSaida[512];
     
+#ifdef _WIN32
+    // 🌟 CORREÇÃO DE BARRAS: No Windows, força strings a usarem barras nativas duplas (\\)
+    if (strcmp(nome, ".") == 0) {
+        sprintf(pathPrefixo, ".");
+        sprintf(pastaResource, "resource");
+        sprintf(pastaKosmos, "tools\\kosmos");
+        sprintf(pastaMsys, "tools\\msys");
+        sprintf(arquivoMain, "src\\main.c");
+        sprintf(arquivoCore, "tools\\kosmos\\kosmos.c");
+        sprintf(arquivoObjeto, "output\\resource.o");
+        sprintf(arquivoSaida, "output\\%s.exe", nomeExecutavel);
+    } else {
+        sprintf(pathPrefixo, "%s", nome);
+        sprintf(pastaResource, "%s\\resource", nome);
+        sprintf(pastaKosmos, "%s\\tools\\kosmos", nome);
+        sprintf(pastaMsys, "%s\\tools\\msys", nome);
+        sprintf(arquivoMain, "%s\\src\\main.c", nome);
+        sprintf(arquivoCore, "%s\\tools\\kosmos\\kosmos.c", nome);
+        sprintf(arquivoObjeto, "%s\\output\\resource.o", nome);
+        sprintf(arquivoSaida, "%s\\output\\%s.exe", nome, nomeExecutavel);
+    }
+#else
     if (strcmp(nome, ".") == 0) {
         sprintf(pathPrefixo, ".");
         sprintf(pastaResource, "resource");
@@ -197,11 +240,11 @@ void compilarProjeto(const char* nome) {
         sprintf(arquivoObjeto, "%s/output/resource.o", nome);
         sprintf(arquivoSaida, "%s/output/%s.exe", nome, nomeExecutavel);
     }
+#endif
 
 #ifdef _WIN32
     printf("🪟 [Windows Host] Iniciando compilação nativa local para Windows...\n");
     char cmdWin[2048];
-    // 🌟 CORREÇÃO: Trocado de '%%s' para '%s' para as variáveis injetarem de verdade na string de execução local
     sprintf(cmdWin, "gcc -mwindows -I \"%s\" -I \"%s\" -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE \"%s\" \"%s\" -o \"%s\" -lshcore -lcomctl32 -lgdi32 -luser32 -lshlwapi -lgdiplus -municode", pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoSaida);
     int res = system(cmdWin);
     
@@ -210,7 +253,8 @@ void compilarProjeto(const char* nome) {
         
         printf("\n[1/7] Limpando build anterior...\n");
         char cmdClean[512];
-        sprintf(cmdClean, "if exist \"%s\\output\\linux\\%s.AppDir\" rmdir /S /Q \"I%s\\output\\linux\\%s.AppDir\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdClean);
+        // 🌟 CORREÇÃO: Removido o caractere 'I' invasor da string de remoção!
+        sprintf(cmdClean, "if exist \"%s\\output\\linux\\%s.AppDir\" rmdir /S /Q \"%s\\output\\linux\\%s.AppDir\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdClean);
         
         char cmdMk[512];
         sprintf(cmdMk, "if not exist \"%s\\output\\linux\\%s.AppDir\\usr\\bin\" mkdir \"%s\\output\\linux\\%s.AppDir\\usr\\bin\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdMk);
@@ -218,7 +262,6 @@ void compilarProjeto(const char* nome) {
 
         printf("[2/7] Copiando executável Windows do projeto (%s)...\n", arquivoSaida);
         char cmdCp[512];
-        // 🌟 CORREÇÃO: Consertado de '&s' para '%s'
         sprintf(cmdCp, "copy /Y \"%s\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\%s.exe\" > nul", arquivoSaida, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
 
         char cmdCheckRes[512];
@@ -231,9 +274,10 @@ void compilarProjeto(const char* nome) {
             fclose(fIcon);
             sprintf(cmdCp, "copy /Y \"%s\\resource\\icon.png\" \"%s\\output\\linux\\%s.AppDir\\%s.png\" > nul", pathPrefixo, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
         } else {
-            char cmdWgetIcon[1024];
-            sprintf(cmdWgetIcon, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://upload.wikimedia.org/wikipedia/commons/8/83/Circle-icons-dev.svg' -OutFile '%s\\output\\linux\\%s.AppDir\\%s.svg'\"", pathPrefixo, nomeExecutavel, nomeExecutavel);
-            system(cmdWgetIcon);
+            // 🌟 CORREÇÃO: Removido o link da Wikipédia que causava 429. Cria um mock de 0 bytes local estável.
+            char pathMockIcon[512];
+            sprintf(pathMockIcon, "%s\\output\\linux\\%s.AppDir\\%s.png", pathPrefixo, nomeExecutavel, nomeExecutavel);
+            FILE *fMock = fopen(pathMockIcon, "wb"); if (fMock) fclose(fMock);
         }
 
         sprintf(cmdMk, "if not exist \"%s\\tools\" mkdir \"%s\\tools\"", pathPrefixo, pathPrefixo); system(cmdMk);
@@ -252,7 +296,8 @@ void compilarProjeto(const char* nome) {
 
         printf("Extraindo Wine para dentro do pacote...\n");
         char cmdExtract[1024];
-        sprintf(cmdExtract, "tar -xf \"%s\\tools\\wine-portable.tar.xz\" -C \"%s\\output\\linux\\%s.AppDir\\usr\" --strip-components=1", pathPrefixo, pathPrefixo, nomeExecutavel);
+        // 🌟 CORREÇÃO: Adicionado o --exclude para o Windows tar não quebrar nos symlinks do winecpp/wineg++
+        sprintf(cmdExtract, "tar -xf \"%s\\tools\\wine-portable.tar.xz\" --exclude=\"*/winecpp\" --exclude=\"*/wineg++\" -C \"%s\\output\\linux\\%s.AppDir\\usr\" --strip-components=1", pathPrefixo, pathPrefixo, nomeExecutavel);
         system(cmdExtract);
 
         printf("[4/7] Criando AppRun Dinâmico (Auto-DPI Baseado no Monitor do Usuário)...\n");
@@ -288,7 +333,6 @@ void compilarProjeto(const char* nome) {
             fprintf(fAppRun, "[HKEY_CURRENT_USER\\Software\\Wine\\X11 Driver]\n\"Decorated\"=\"Y\"\n\"Managed\"=\"Y\"\n\"UseTakeFocus\"=\"N\"\n\n");
             fprintf(fAppRun, "[HKEY_CURRENT_USER\\Software\\Wine\\Fonts]\n\"Antialias\"=\"Y\"\n\n");
             fprintf(fAppRun, "[HKEY_CURRENT_USER\\Control Panel\\Colors]\n\"ActiveBorder\"=\"200 200 200\"\n\"ActiveTitle\"=\"255 255 255\"\n\"AppWorkspace\"=\"255 255 255\"\n\"Background\"=\"255 255 255\"\n\"ButtonAlternateFace\"=\"255 255 255\"\n\"ButtonDkShadow\"=\"160 160 160\"\n\"ButtonFace\"=\"243 243 243\"\n\"ButtonHilight\"=\"255 255 255\"\n\"ButtonLight\"=\"243 243 243\"\n\"ButtonShadow\"=\"200 200 200\"\n\"ButtonText\"=\"0 0 0\"\n\"GradientActiveTitle\"=\"255 255 255\"\n\"GradientInactiveTitle\"=\"243 243 243\"\n\"GrayText\"=\"120 120 120\"\n\"Hilight\"=\"0 120 215\"\n\"HilightText\"=\"255 255 255\"\n\"HotTrackingColor\"=\"0 102 204\"\n\"InactiveBorder\"=\"243 243 243\"\n\"InactiveTitle\"=\"243 243 243\"\n\"InactiveTitleText\"=\"120 120 120\"\n\"InfoText\"=\"0 0 0\"\n\"InfoWindow\"=\"255 255 255\"\n\"Menu\"=\"255 255 255\"\n\"MenuBar\"=\"243 243 243\"\n\"MenuHilight\"=\"230 230 230\"\n\"MenuText\"=\"0 0 0\"\n\"Scrollbar\"=\"243 243 243\"\n\"TitleText\"=\"0 0 0\"\n\"Window\"=\"255 255 255\"\n\"WindowFrame\"=\"200 200 200\"\n\"WindowText\"=\"0 0 0\"\n\n");
-            // 🌟 CORREÇÃO DEFINTIVA: Injetado com 4 barras para transpor de forma correta e escapar o interpretador de strings do C sem quebras
             fprintf(fAppRun, "[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\\\\\\\CurrentVersion\\FontSubstitutes]\n\"MS Shell Dlg\"=\"Segoe UI\"\n\"MS Shell Dlg 2\"=\"Segoe UI\"\n\"Tahoma\"=\"Segoe UI\"\n\"Arial\"=\"Segoe UI\"\nREG\n\n");
             fprintf(fAppRun, "\"$HERE/usr/bin/regedit\" /S \"$WINEPREFIX/config.reg\"\n");
             fprintf(fAppRun, "cd \"$HERE/usr/bin\"\n");
@@ -318,6 +362,7 @@ void compilarProjeto(const char* nome) {
 
         printf("[7/7] Empacotando AppImage...\n");
         char cmdMksquash[1024];
+        // 🌟 CORREÇÃO DE EXECUÇÃO: Utiliza o caminho 100% em barras nativas do Windows para o CMD não quebrar
         sprintf(cmdMksquash, "\"%s\\mksquashfs.exe\" \"%s\\output\\linux\\%s.AppDir\" \"%s\\output\\linux\\fs.squashfs\" -root-owned -noappend -comp xz -b 1M", pastaMsys, pathPrefixo, nomeExecutavel, pathPrefixo);
         int rSquash = system(cmdMksquash);
         
@@ -347,6 +392,7 @@ void compilarProjeto(const char* nome) {
         printf("❌ Erro durante o build local do Windows.\n");
     }
 #else
+    // --- FLUXO DO HOST LINUX ---
     printf("🔨 [1/4] Processando Recursos -> %s/resource.rc\n", pastaResource);
     char cmdWindres[1024];
     sprintf(cmdWindres, "/usr/bin/x86_64-w64-mingw32-windres -I \"%s\" -i \"%s/resource.rc\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, pastaResource, arquivoObjeto);
@@ -453,6 +499,11 @@ void implantarPacotes(const char* nome) {
 // ================= FUNÇÃO PRINCIPAL (MAIN) =================
 
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+    // 🌟 CORREÇÃO DE CARACTERES: Configura o prompt para ler e escrever UTF-8 nativamente
+    SetConsoleOutputCP(65001);
+#endif
+
     if (argc < 2) { mostrarAjuda(); return 1; }
     
     if (strcmp(argv[1], "create") == 0) {
