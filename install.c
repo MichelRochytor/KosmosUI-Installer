@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
     // ================= FLUXO STANDALONE LINUX (ZORIN OS) =================
     if (!isatty(STDIN_FILENO)) {
         char cmdTerminal[1024];
-        sprintf(cmdTerminal, "gnome-terminal -- \"%%s\"", argv[0]);
+        sprintf(cmdTerminal, "gnome-terminal -- \"%s\"", argv[0]);
         system(cmdTerminal);
         return 0;
     }
