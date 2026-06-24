@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
             printf("👉 O Windows precisa atualizar as variáveis de ambiente do sistema.\n");
             printf("❌ Por favor, FECHE esta janela, abra um NOVO terminal e execute o 'instalar.exe' novamente para concluir!\n\n");
             system("pause");
-            return 0; // Para a execução aqui para o usuário reiniciar o prompt
+            return 0; 
         } else {
             printf("❌ Erro: Não foi possível instalar o GCC automaticamente via Winget.\n");
             printf("💡 Por favor, instale o MinGW-w64 manualmente e adicione-o ao PATH.\n");
@@ -51,16 +51,22 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    printf("🌐 [1/3] Baixando a CLI estável direto do GitHub Releases...\n");
-    // 🌟 CORREÇÃO: Removeu o -Quiet inválido e desativou a progress bar nativa do PowerShell
+    printf("🌐 [1/3] Baixando a CLI estável direto do GitHub...\n");
+    // 🌟 CORREÇÃO IMPEDIMENTO: Mudado o OutFile para usar %TEMP% expandido diretamente no CMD, removendo o $env: do PowerShell
     char cmdDlWin[1024];
-    sprintf(cmdDlWin, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%s' -OutFile '$env:TEMP\\kosmos-cli.c'\"", URL_CLI);
+    sprintf(cmdDlWin, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%s' -OutFile '$clitmp'\" -Environment @{ clitmp = \"$env:TEMP\\kosmos-cli.c\" }", URL_CLI);
+    
+    // Se o PowerShell acima for complexo, essa linha abaixo com aspas simples resolve de forma limpa:
+    sprintf(cmdDlWin, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%s' -OutFile (Join-Path $splitpath $env:TEMP 'kosmos-cli.c')\"", URL_CLI);
+    
+    // O jeito mais seguro de todos para o CMD:
+    sprintf(cmdDlWin, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%s' -OutFile \"\"\"$env:TEMP\\kosmos-cli.c\"\"\"", URL_CLI);
     system(cmdDlWin);
 
     printf("🔨 [2/3] Compilando e otimizando o motor localmente...\n");
-    // Compila direto da pasta temporária do sistema para não poluir o disco do usuário
-    int rWin = system("gcc %TEMP%\\kosmos-cli.c -o %USERPROFILE%\\.local\\bin\\kosmos.exe");
-    system("del /Q %TEMP%\\kosmos-cli.c > nul 2>&1"); // Limpa o rastro de código
+    // 🌟 CORREÇÃO: Usamos chamadas via PowerShell para expandir o caminho na compilação, tirando a fraqueza do %%TEMP%% do CMD
+    int rWin = system("powershell -Command \"gcc $env:TEMP\\kosmos-cli.c -o $env:USERPROFILE\\.local\\bin\\kosmos.exe\"");
+    system("powershell -Command \"if (Test-Path $env:TEMP\\kosmos-cli.c) { Remove-Item $env:TEMP\\kosmos-cli.c -Force }\"");
 
     if (rWin != 0) {
         printf("❌ Erro fatal: O GCC instalado não conseguiu compilar a CLI do KosmosUI.\n");
