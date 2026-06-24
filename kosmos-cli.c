@@ -280,23 +280,32 @@ void compilarProjeto(const char* nome) {
 
 #ifdef _WIN32
     // =========================================================================
-    // --- FLUXO DO HOST WINDOWS ---
+    // --- FLUXO DO HOST WINDOWS (CORRIGIDO) ---
     // =========================================================================
     printf("🪟 [Windows Host] Iniciando compilação nativa com Manifesto embutido...\n");
     
-    // Compila o Recurso temporário (Manifesto + Diálogos juntos)
-    char cmdRes[1024]; // 🌟 AJUSTE: Expandido de 512 para 1024
+    // 1. Compila o Recurso temporário contendo o manifesto e a árvore de diálogos juntos
+    char cmdRes[1024];
     sprintf(cmdRes, "windres -I \"%s\" -i \"%s\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, rcTemporario, arquivoObjeto);
-    system(cmdRes);
+    int rRes = system(cmdRes);
 
-    // Deleta o arquivo temporário
-    char cmdCleanTemp[1024]; // 🌟 AJUSTE: Expandido de 512 para 1024
+    // Deleta o arquivo temporário imediatamente
+    char cmdCleanTemp[1024];
     sprintf(cmdCleanTemp, "del \"%s\"", rcTemporario);
     system(cmdCleanTemp);
 
-    // Compila a aplicação linkando as rimes e as dependências
-    char cmdWin[4096]; // 🌟 AJUSTE: Expandido de 2048 para 4096 para conter strings de compilação imensas sem quebra
-    sprintf(cmdWin, "gcc -mwindows -I \"%s\" -I \"%s\" -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ \"-Wl,--subsystem,windows\" -municode", pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
+    if (rRes != 0) {
+        printf("❌ Erro fatal: O windres falhou ao processar os recursos do sistema.\n");
+        exit(1);
+    }
+
+    // 2. Compila a aplicação garantindo a ORDEM CRÍTICA dos parâmetros do GCC
+    char cmdWin[4096];
+    // Mudado para subsistema CONSOLE para você ver os logs de erro se o app falhar por dentro!
+    sprintf(cmdWin, "gcc -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -Wl,--subsystem,console -municode", 
+            pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
+    
+    printf("⚙️  Vinculando binários e injetando tabelas de símbolos estáticos...\n");
     int res = system(cmdWin);
     
     if (res == 0) {
