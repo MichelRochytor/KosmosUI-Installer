@@ -117,16 +117,14 @@ void criarAmbienteVscode(const char* nomeProjeto) {
 #else
         fprintf(t, "{\n  \"version\": \"2.0.0\",\n  \"tasks\": [\n");
         fprintf(t, "    {\n      \"label\": \"1. Compilar Recurso (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"/usr/bin/x86_64-w64-mingw32-windres\",\n");
+        // O windres lê direto o resource.rc que o usuário criar. A CLI que vai usar a malandragem do temporário
         fprintf(t, "      \"args\": [\"-I\", \"${workspaceFolder}/resource\", \"-i\", \"${workspaceFolder}/resource/resource.rc\", \"-o\", \"${workspaceFolder}/output/resource.o\", \"-O\", \"coff\", \"-F\", \"pe-x86-64\"],\n");
         fprintf(t, "      \"group\": \"build\", \"problemMatcher\": [], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
         fprintf(t, "    {\n      \"label\": \"3. Compilar Aplicação Principal (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"/usr/bin/x86_64-w64-mingw32-gcc\",\n");
-        fprintf(t, "      \"args\": [\"-mwindows\", \"-I\", \"${workspaceFolder}/resource\", \"-I\", \"${workspaceFolder}/tools/kosmos\", \"-g\", \"-Wall\", \"-D_WIN32_WINNT=0x0A00\", \"-DWINVER=0x0A00\", \"-DUNICODE\", \"-D_UNICODE\", \"${workspaceFolder}/src/main.c\", \"${workspaceFolder}/tools/kosmos/kosmos.c\", \"${workspaceFolder}/output/resource.o\", \"-o\", \"${workspaceFolder}/output/%s.exe\", \"-lshcore\", \"-lcomctl32\", \"-lgdi32\", \"-luser32\", \"-lshlwapi\", \"-lgdiplus\", \"-static-libgcc\", \"-Wl,--subsystem,windows\", \"-municode\"],\n", nomeProjeto);
+        fprintf(t, "      \"args\": [\"-mwindows\", \"-I\", \"${workspaceFolder}/resource\", \"-I\", \"${workspaceFolder}/tools/kosmos\", \"-g\", \"-Wall\", \"-D_WIN32_WINNT=0x0A00\", \"-DWINVER=0x0A00\", \"-DUNICODE\", \"-D_UNICODE\", \"${workspaceFolder}/src/main.c\", \"${workspaceFolder}/tools/kosmos/kosmos.c\", \"${workspaceFolder}/output/resource.o\", \"-o\", \"${workspaceFolder}/output/%s.exe\", \"-lshcore\", \"-lcomctl32\", \"-lgdi32\", \"-luser32\", \"-lshlwapi\", \"-lgdiplus\", \"-static-libgcc\", \"-static-libstdc++\", \"-Wl,--subsystem,windows\", \"-municode\"],\n", nomeProjeto);
         fprintf(t, "      \"dependsOn\": [\"1. Compilar Recurso (Linux)\"], \"group\": \"build\", \"problemMatcher\": [\"$gcc\"], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
-        fprintf(t, "    {\n      \"label\": \"4. Aplicar Manifest (Wine)\",\n      \"type\": \"process\", \"command\": \"wine\",\n");
-        fprintf(t, "      \"args\": [\"${workspaceFolder}/tools/msys/mt.exe\", \"-nologo\", \"-manifest\", \"Z:${workspaceFolder}/tools/kosmos/kosmos.exe.manifest\", \"-outputresource:Z:${workspaceFolder}/output/%s.exe;#1\"],\n", nomeProjeto);
-        fprintf(t, "      \"options\": { \"env\": { \"WINEDEBUG\": \"-all\" } }, \"dependsOn\": \"3. Compilar Aplicação Principal (Linux)\", \"problemMatcher\": [], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
         fprintf(t, "    {\n      \"label\": \"5. Gerar AppImage (Linux)\",\n      \"type\": \"shell\", \"command\": \"bash\", \"args\": [\"${workspaceFolder}/tools/package_linux.sh\", \"%s\"],\n", nomeProjeto);
-        fprintf(t, "      \"dependsOn\": [\"4. Aplicar Manifest (Wine)\"], \"group\": \"build\", \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
+        fprintf(t, "      \"dependsOn\": [\"3. Compilar Aplicação Principal (Linux)\"], \"group\": \"build\", \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
         fprintf(t, "    {\n      \"label\": \"Build All & Run (Linux)\", \"dependsOn\": [\"5. Gerar AppImage (Linux)\"], \"dependsOrder\": \"sequence\", \"group\": { \"kind\": \"build\", \"isDefault\": true },\n");
         fprintf(t, "      \"type\": \"process\", \"command\": \"${workspaceFolder}/output/linux/%s-x86_64.AppImage\", \"args\": [],\n", nomeProjeto);
         fprintf(t, "      \"presentation\": { \"echo\": false, \"reveal\": \"never\", \"focus\": false, \"panel\": \"shared\", \"showReuseMessage\": false, \"clear\": true }\n    }\n  ]\n}", nomeProjeto);
@@ -237,10 +235,54 @@ void compilarProjeto(const char* nome) {
     }
 #endif
 
+    // 🌟 1. GERENCIAMENTO UNIFICADO DO MANIFESTO INJETADO VIA RESOURCE TEMPORÁRIO
+    printf("🪐 [Kosmos CLI] Preparando recursos e manifesto de forma nativa...\n");
+    char rcOriginal[512], rcTemporario[512];
 #ifdef _WIN32
-    printf("🪟 [Windows Host] Iniciando compilação nativa local para Windows...\n");
+    sprintf(rcOriginal, "%s\\resource.rc", pastaResource);
+    sprintf(rcTemporario, "%s\\resource_temp.rc", pastaResource);
+#else
+    sprintf(rcOriginal, "%s/resource.rc", pastaResource);
+    sprintf(rcTemporario, "%s/resource_temp.rc", pastaResource);
+#endif
+
+    FILE* fOrig = fopen(rcOriginal, "r");
+    FILE* fTemp = fopen(rcTemporario, "w");
+    if (fOrig && fTemp) {
+        // Injeta o manifesto do framework obrigatoriamente na Linha 1 do resource
+        fprintf(fTemp, "1 24 \"tools/kosmos/kosmos.exe.manifest\"\n\n");
+        char ch;
+        while ((ch = fgetc(fOrig)) != EOF) {
+            fputc(ch, fTemp);
+        }
+        fclose(fOrig);
+        fclose(fTemp);
+    } else {
+        if (fOrig) fclose(fOrig);
+        if (fTemp) fclose(fTemp);
+        printf("❌ [Erro] Não foi possível ler ou gerar arquivos de recurso temporários!\n");
+        exit(1);
+    }
+
+#ifdef _WIN32
+    // =========================================================================
+    // --- FLUXO DO HOST WINDOWS ---
+    // =========================================================================
+    printf("🪟 [Windows Host] Iniciando compilação nativa com Manifesto embutido...\n");
+    
+    // Compila o Recurso temporário (Manifesto + Diálogos juntos)
+    char cmdRes[512];
+    sprintf(cmdRes, "windres -I \"%s\" -i \"%s\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, rcTemporario, arquivoObjeto);
+    system(cmdRes);
+
+    // Deleta o arquivo temporário
+    char cmdCleanTemp[512];
+    sprintf(cmdCleanTemp, "del \"%s\"", rcTemporario);
+    system(cmdCleanTemp);
+
+    // Compila a aplicação linkando as rimes e as dependências
     char cmdWin[2048];
-    sprintf(cmdWin, "gcc -mwindows -I \"%s\" -I \"%s\" -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE \"%s\" \"%s\" -o \"%s\" -lshcore -lcomctl32 -lgdi32 -luser32 -lshlwapi -lgdiplus -municode", pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoSaida);
+    sprintf(cmdWin, "gcc -mwindows -I \"%s\" -I \"%s\" -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ \"-Wl,--subsystem,windows\" -municode", pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
     int res = system(cmdWin);
     
     if (res == 0) {
@@ -256,7 +298,6 @@ void compilarProjeto(const char* nome) {
 
         printf("[2/7] Copiando executável Windows do projeto (%s)...\n", arquivoSaida);
         char cmdCp[512];
-        // 🌟 CORREÇÃO: Trocado de '&s' para '%s' para copiar o arquivo nativo de verdade
         sprintf(cmdCp, "copy /Y \"%s\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\%s.exe\" > nul", arquivoSaida, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
 
         char cmdCheckRes[512];
@@ -359,7 +400,7 @@ void compilarProjeto(const char* nome) {
         int rSquash = system(cmdMksquash);
         
         if (rSquash != 0) {
-            printf("ERRO: mksquashfs não encontrado. Certifique-se de possuir o mksquashfs.exe em %s\n", pastaMsys);
+            printf("ERRO: mksquashfs não encontrado. Certifique-se de possuir o mksquashfs.exe in %s\n", pastaMsys);
             exit(1);
         }
 
@@ -378,7 +419,6 @@ void compilarProjeto(const char* nome) {
 
         printf("\n🚀 [AUTO-RUN] Executando binário nativo do Windows local agora...\n");
         char cmdRunWin[512];
-        // 🌟 CORREÇÃO DE DIRETÓRIO: Dá um 'cd' na pasta do projeto antes do app iniciar para achar o 'resource/' nativo
         if (strcmp(nome, ".") == 0) {
             sprintf(cmdRunWin, "\"%s\"", arquivoSaida);
         } else {
@@ -389,23 +429,27 @@ void compilarProjeto(const char* nome) {
         printf("❌ Erro durante o build local do Windows.\n");
     }
 #else
-    // --- FLUXO DO HOST LINUX ---
-    printf("🔨 [1/4] Processando Recursos -> %s/resource.rc\n", pastaResource);
+    // =========================================================================
+    // --- FLUXO DO HOST LINUX (SEM MT.EXE E SEM WINE NO BUILD!) ---
+    // =========================================================================
+    printf("🔨 [1/3] Processando Recursos com Manifesto Acoplado -> %s/resource.rc\n", pastaResource);
     char cmdWindres[1024];
-    sprintf(cmdWindres, "/usr/bin/x86_64-w64-mingw32-windres -I \"%s\" -i \"%s/resource.rc\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, pastaResource, arquivoObjeto);
+    // Roda o windres apontando para a cópia temporária com o manifesto injetado na Linha 1
+    sprintf(cmdWindres, "/usr/bin/x86_64-w64-mingw32-windres -I \"%s\" -i \"%s\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, rcTemporario, arquivoObjeto);
     int r1 = system(cmdWindres);
     
-    printf("🚀 [2/4] Executando Cross-Compiler GCC (MinGW-w64) -> %s\n", arquivoSaida);
+    // Deleta a cópia temporária no Linux usando o comando 'rm'
+    char cmdCleanTemp[512];
+    sprintf(cmdCleanTemp, "rm \"%s\"", rcTemporario);
+    system(cmdCleanTemp);
+    
+    printf("🚀 [2/3] Executando Cross-Compiler GCC (MinGW-w64) -> %s\n", arquivoSaida);
     char cmdGcc[2048];
-    sprintf(cmdGcc, "/usr/bin/x86_64-w64-mingw32-gcc -mwindows -g -Wall -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -Wl,--subsystem,windows -municode -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lshcore -lcomctl32 -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc", pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
+    // Adicionado o -lcomctl32 e o -static-libstdc++ no build do Linux para manter 100% o match visual do Windows Host
+    sprintf(cmdGcc, "/usr/bin/x86_64-w64-mingw32-gcc -mwindows -g -Wall -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -Wl,--subsystem,windows -municode -I \"%s\" -I \"%s\" \"%%s\" \"%%s\" \"%%s\" -o \"%%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++", pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
     int r2 = system(cmdGcc);
 
-    printf("🎭 [3/4] Injetando Manifest Visual do Windows via Wine...\n");
-    char cmdManifest[1024];
-    sprintf(cmdManifest, "WINEDEBUG=-all wine \"%s/mt.exe\" -nologo -manifest \"%s/kosmos.exe.manifest\" -outputresource:\"%s\";#1", pastaMsys, pastaKosmos, arquivoSaida);
-    int r3 = system(cmdManifest);
-
-    printf("📦 [4/4] Gerando Empacotamento Estável AppImage...\n");
+    printf("📦 [3/3] Gerando Empacotamento Estável AppImage...\n");
     char cmdPackage[512];
     if (strcmp(nome, ".") == 0) {
         sprintf(cmdPackage, "bash tools/package_linux.sh \"%s\"", nomeExecutavel);
@@ -414,7 +458,8 @@ void compilarProjeto(const char* nome) {
     }
     int r4 = system(cmdPackage);
 
-    if (r1 == 0 && r2 == 0 && r3 == 0 && r4 == 0) {
+    // Como removemos o r3 (mt.exe), a validação agora checa r1, r2 e r4
+    if (r1 == 0 && r2 == 0 && r4 == 0) {
         printf("✅ [Sucesso] Sequência de build executada com êxito! Projeto \"%s\" pronto.\n", nomeExecutavel);
         printf("🚀 [AUTO-RUN] Executando pacote AppImage isolado agora...\n");
         char cmdRunLinux[512];
