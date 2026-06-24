@@ -430,23 +430,42 @@ void compilarProjeto(const char* nome) {
     }
 #else
     // =========================================================================
-    // --- FLUXO DO HOST LINUX (SEM MT.EXE E SEM WINE NO BUILD!) ---
+    // --- FLUXO DO HOST LINUX (CORRIGIDO!) ---
     // =========================================================================
-    printf("🔨 [1/3] Processando Recursos com Manifesto Acoplado -> %s/resource.rc\n", pastaResource);
+    
+    // Reescreve o arquivo temporário do recurso para o Linux achar o manifesto no caminho absoluto do projeto
+    FILE* fTempLinux = fopen(rcTemporario, "w");
+    if (fTempLinux) {
+        // 🌟 CORREÇÃO 1: Injeta o caminho completo até a pasta tools/kosmos do projeto alvo
+        fprintf(fTempLinux, "1 24 \"%s/kosmos.exe.manifest\"\n\n", pastaKosmos);
+        
+        // Copia o resto do .rc original por baixo
+        FILE* fOrigLinux = fopen(rcOriginal, "r");
+        if (fOrigLinux) {
+            char ch;
+            while ((ch = fgetc(fOrigLinux)) != EOF) {
+                fputc(ch, fTempLinux);
+            }
+            fclose(fOrigLinux);
+        }
+        fclose(fTempLinux);
+    }
+
+    printf("🔨 [1/3] Processando Recursos com Manifesto Acoplado -> %s\n", rcTemporario);
     char cmdWindres[1024];
-    // Roda o windres apontando para a cópia temporária com o manifesto injetado na Linha 1
     sprintf(cmdWindres, "/usr/bin/x86_64-w64-mingw32-windres -I \"%s\" -i \"%s\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, rcTemporario, arquivoObjeto);
     int r1 = system(cmdWindres);
     
-    // Deleta a cópia temporária no Linux usando o comando 'rm'
+    // Deleta a cópia temporária no Linux
     char cmdCleanTemp[512];
     sprintf(cmdCleanTemp, "rm \"%s\"", rcTemporario);
     system(cmdCleanTemp);
     
     printf("🚀 [2/3] Executando Cross-Compiler GCC (MinGW-w64) -> %s\n", arquivoSaida);
     char cmdGcc[2048];
-    // Adicionado o -lcomctl32 e o -static-libstdc++ no build do Linux para manter 100% o match visual do Windows Host
-    sprintf(cmdGcc, "/usr/bin/x86_64-w64-mingw32-gcc -mwindows -g -Wall -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -Wl,--subsystem,windows -municode -I \"%s\" -I \"%s\" \"%%s\" \"%%s\" \"%%s\" -o \"%%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++", pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
+    // 🌟 CORREÇÃO 2: Trocado de '%%s' para '%s' nas strings de entrada do compilador
+    sprintf(cmdGcc, "/usr/bin/x86_64-w64-mingw32-gcc -mwindows -g -Wall -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -Wl,--subsystem,windows -municode -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++", 
+            pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
     int r2 = system(cmdGcc);
 
     printf("📦 [3/3] Gerando Empacotamento Estável AppImage...\n");
@@ -458,7 +477,6 @@ void compilarProjeto(const char* nome) {
     }
     int r4 = system(cmdPackage);
 
-    // Como removemos o r3 (mt.exe), a validação agora checa r1, r2 e r4
     if (r1 == 0 && r2 == 0 && r4 == 0) {
         printf("✅ [Sucesso] Sequência de build executada com êxito! Projeto \"%s\" pronto.\n", nomeExecutavel);
         printf("🚀 [AUTO-RUN] Executando pacote AppImage isolado agora...\n");
