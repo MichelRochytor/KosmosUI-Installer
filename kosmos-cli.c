@@ -238,9 +238,8 @@ void compilarProjeto(const char* nome) {
     }
 #endif
 
-    // 🌟 1. GERENCIAMENTO UNIFICADO DO MANIFESTO INJETADO VIA RESOURCE TEMPORÁRIO
+  // 🌟 1. GERENCIAMENTO UNIFICADO DO MANIFESTO INJETADO VIA RESOURCE TEMPORÁRIO
     printf("🪐 [Kosmos CLI] Preparando recursos e manifesto de forma nativa...\n");
-    // 🌟 AJUSTE: Expandido buffers dos arquivos rc de 512 para 1024 bytes para conter o path completo com segurança
     char rcOriginal[1024], rcTemporario[1024];
 #ifdef _WIN32
     sprintf(rcOriginal, "%s\\resource.rc", pastaResource);
@@ -250,20 +249,31 @@ void compilarProjeto(const char* nome) {
     sprintf(rcTemporario, "%s/resource_temp.rc", pastaResource);
 #endif
 
-    FILE* fOrig = fopen(rcOriginal, "r");
-    FILE* fTemp = fopen(rcTemporario, "w");
-    if (fOrig && fTemp) {
-        // Injeta o manifesto do framework obrigatoriamente na Linha 1 do resource
-        fprintf(fTemp, "1 24 \"tools/kosmos/kosmos.exe.manifest\"\n\n");
-        char ch;
-        while ((ch = fgetc(fOrig)) != EOF) {
-            fputc(ch, fTemp);
+    // Normaliza o caminho da pastaKosmos substituindo '\\' por '/' temporariamente 
+    // para o windres não se perder com caracteres de escape no arquivo .rc
+    char pastaKosmosLimpa[1024];
+    strcpy(pastaKosmosLimpa, pastaKosmos);
+    for (int i = 0; pastaKosmosLimpa[i] != '\0'; i++) {
+        if (pastaKosmosLimpa[i] == '\\') {
+            pastaKosmosLimpa[i] = '/';
         }
-        fclose(fOrig);
+    }
+
+    FILE* fTemp = fopen(rcTemporario, "w");
+    if (fTemp) {
+        // 🌟 CORREÇÃO CRÍTICA: Agora usa o caminho absoluto/correto do projeto alvo
+        fprintf(fTemp, "1 24 \"%s/kosmos.exe.manifest\"\n\n", pastaKosmosLimpa);
+        
+        FILE* fOrig = fopen(rcOriginal, "r");
+        if (fOrig) {
+            char ch;
+            while ((ch = fgetc(fOrig)) != EOF) {
+                fputc(ch, fTemp);
+            }
+            fclose(fOrig);
+        }
         fclose(fTemp);
     } else {
-        if (fOrig) fclose(fOrig);
-        if (fTemp) fclose(fTemp);
         printf("❌ [Erro] Não foi possível ler ou gerar arquivos de recurso temporários!\n");
         exit(1);
     }
