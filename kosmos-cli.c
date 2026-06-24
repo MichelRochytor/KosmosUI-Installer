@@ -302,7 +302,7 @@ void compilarProjeto(const char* nome) {
     // 2. Compila a aplicação garantindo a ORDEM CRÍTICA dos parâmetros do GCC
     char cmdWin[4096];
     // Mudado para subsistema CONSOLE para você ver os logs de erro se o app falhar por dentro!
-    sprintf(cmdWin, "gcc -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -Wl,--subsystem,console -municode", 
+    sprintf(cmdWin, "gcc -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -Wl,--subsystem,console -municode -lcomdlg32", 
             pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
     
     printf("⚙️  Vinculando binários e injetando tabelas de símbolos estáticos...\n");
