@@ -272,7 +272,7 @@ void compilarProjeto(const char* nome, int modoDebug) {
     strcpy(pastaKosmosLimpa, pastaKosmos);
     for (int i = 0; pastaKosmosLimpa[i] != '\0'; i++) {
         if (pastaKosmosLimpa[i] == '\\') {
-            box_i = '/'; // Normaliza para o windres não se perder com escapes
+            pastaKosmosLimpa[i] = '/'; // Normaliza para o windres não se perder com escapes
         }
     }
 
