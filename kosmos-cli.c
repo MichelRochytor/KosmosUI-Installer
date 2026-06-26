@@ -293,7 +293,7 @@ void executarPipelineBuild(const char* nome, int gerarAppImage, int modoDebug) {
     char cmdWin[4096];
     const char* flagSubsystem = modoDebug ? "console" : "windows";
     
-    sprintf(cmdWin, "gcc -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -lcomdlg32 -Wl,--subsystem,%s -municode", 
+    sprintf(cmdWin, "gcc -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -lcomdlg32 -Wl,--subsystem,%s ", 
             pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida, flagSubsystem);
     
     printf("⚙️  Vinculando binários e injetando tabelas de símbolos...\n");
