@@ -78,18 +78,18 @@ void checarEInstalarCompilador() {
 }
 
 void mostrarAjuda() {
-    printf("=======================================================\n");
-    printf("🌌 KOSMOSUI SDK CLI - Versão 1.1.0 (Build 2026)       \n");
-    printf("=======================================================\n");
+    printf("================================================================================\n");
+    printf("🌌 KOSMOSUI SDK CLI - Versão 1.1.0 (Build 2026)                                 \n");
+    printf("================================================================================\n");
     printf("Uso: kosmos [comando] [argumentos]\n\n");
     printf("Comandos disponíveis:\n");
     printf("  create \"nome_projeto\"   Clona o repositório base e configura o .vscode\n");
-    printf("  run [nome_projeto]      ⚡ Compilação RÁPIDA e executa direto (Sem gerar AppImage)\n");
-    printf("  debug [nome_projeto]    🪲 Compila em modo CONSOLE de debug para rastrear crashes\n");
-    printf("  build [nome_projeto]    📦 Compilação COMPLETA e gera pacote estável AppImage\n");
-    printf("  deploy [nome_projeto]   Gera os pacotes de instalação final .deb e .exe\n");
+    printf("  build [nome_projeto]    Compila tudo, gera empacotamento completo e executa\n");
+    printf("  run [nome_projeto]      Apenas executa o binário .exe direto (Sem gerar AppImage)\n");
+    printf("  debug [nome_projeto]    Compila forçando o terminal ativo atrás da janela (Logs de printf)\n");
+    printf("  deploy [nome_projeto]   Gera os pacotes de instalação finais (.deb e .exe)\n");
     printf("  version                 Exibe a versão atual do SDK\n");
-    printf("=======================================================\n");
+    printf("================================================================================\n");
 }
 
 void criarAmbienteVscode(const char* nomeProjeto) {
@@ -112,22 +112,23 @@ void criarAmbienteVscode(const char* nomeProjeto) {
     if (t) {
 #ifdef _WIN32
         fprintf(t, "{\n  \"version\": \"2.0.0\",\n  \"tasks\": [\n");
-        fprintf(t, "    {\n      \"label\": \"KosmosUI: Fast Run (Windows)\",\n      \"type\": \"shell\",\n      \"command\": \"kosmos run\",\n");
+        fprintf(t, "    {\n      \"label\": \"KosmosUI: Build & Run (Windows)\",\n      \"type\": \"shell\",\n      \"command\": \"kosmos build\",\n");
         fprintf(t, "      \"group\": { \"kind\": \"build\", \"isDefault\": true },\n");
-        fprintf(t, "      \"problemMatcher\": [\"$gcc\"],\n");
-        fprintf(t, "      \"presentation\": { \"echo\": true, \"reveal\": \"always\", \"focus\": true, \"panel\": \"shared\", \"clear\": true }\n    },\n");
-        fprintf(t, "    {\n      \"label\": \"KosmosUI: Debug Mode (Windows)\",\n      \"type\": \"shell\",\n      \"command\": \"kosmos debug\",\n");
         fprintf(t, "      \"problemMatcher\": [\"$gcc\"],\n");
         fprintf(t, "      \"presentation\": { \"echo\": true, \"reveal\": \"always\", \"focus\": true, \"panel\": \"shared\", \"clear\": true }\n    }\n  ]\n}");
 #else
         fprintf(t, "{\n  \"version\": \"2.0.0\",\n  \"tasks\": [\n");
-        fprintf(t, "    {\n      \"label\": \"KosmosUI: Fast Run (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"kosmos run\",\n");
-        fprintf(t, "      \"group\": { \"kind\": \"build\", \"isDefault\": true },\n");
-        fprintf(t, "      \"problemMatcher\": [\"$gcc\"],\n");
-        fprintf(t, "      \"presentation\": { \"echo\": true, \"reveal\": \"always\", \"focus\": true, \"panel\": \"shared\", \"clear\": true }\n    },\n");
-        fprintf(t, "    {\n      \"label\": \"KosmosUI: Debug Mode (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"kosmos debug\",\n");
-        fprintf(t, "      \"problemMatcher\": [\"$gcc\"],\n");
-        fprintf(t, "      \"presentation\": { \"echo\": true, \"reveal\": \"always\", \"focus\": true, \"panel\": \"shared\", \"clear\": true }\n    }\n  ]\n}");
+        fprintf(t, "    {\n      \"label\": \"1. Compilar Recurso (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"/usr/bin/x86_64-w64-mingw32-windres\",\n");
+        fprintf(t, "      \"args\": [\"-I\", \"${workspaceFolder}/resource\", \"-i\", \"${workspaceFolder}/resource/resource.rc\", \"-o\", \"${workspaceFolder}/output/resource.o\", \"-O\", \"coff\", \"-F\", \"pe-x86-64\"],\n");
+        fprintf(t, "      \"group\": \"build\", \"problemMatcher\": [], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
+        fprintf(t, "    {\n      \"label\": \"3. Compilar Aplicação Principal (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"/usr/bin/x86_64-w64-mingw32-gcc\",\n");
+        fprintf(t, "      \"args\": [\"-mwindows\", \"-I\", \"${workspaceFolder}/resource\", \"-I\", \"${workspaceFolder}/tools/kosmos\", \"-g\", \"-Wall\", \"-D_WIN32_WINNT=0x0A00\", \"-DWINVER=0x0A00\", \"-DUNICODE\", \"-D_UNICODE\", \"${workspaceFolder}/src/main.c\", \"${workspaceFolder}/tools/kosmos/kosmos.c\", \"${workspaceFolder}/output/resource.o\", \"-o\", \"${workspaceFolder}/output/%s.exe\", \"-lshcore\", \"-lcomctl32\", \"-lgdi32\", \"-luser32\", \"-lshlwapi\", \"-lgdiplus\", \"-static-libgcc\", \"-static-libstdc++\", \"-Wl,--subsystem,windows\", \"-municode\"], \n", nomeProjeto);
+        fprintf(t, "      \"dependsOn\": [\"1. Compilar Recurso (Linux)\"], \"group\": \"build\", \"problemMatcher\": [\"$gcc\"], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
+        fprintf(t, "    {\n      \"label\": \"5. Gerar AppImage (Linux)\",\n      \"type\": \"shell\", \"command\": \"bash\", \"args\": [\"${workspaceFolder}/tools/package_linux.sh\", \"%s\"],\n", nomeProjeto);
+        fprintf(t, "      \"dependsOn\": [\"3. Compilar Aplicação Principal (Linux)\"], \"group\": \"build\", \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
+        fprintf(t, "    {\n      \"label\": \"Build All & Run (Linux)\", \"dependsOn\": [\"5. Gerar AppImage (Linux)\"], \"dependsOrder\": \"sequence\", \"group\": { \"kind\": \"build\", \"isDefault\": true },\n");
+        fprintf(t, "      \"type\": \"process\", \"command\": \"${workspaceFolder}/output/linux/%s-x86_64.AppImage\", \"args\": [],\n", nomeProjeto);
+        fprintf(t, "      \"presentation\": { \"echo\": false, \"reveal\": \"never\", \"focus\": false, \"panel\": \"shared\", \"showReuseMessage\": false, \"clear\": true }\n    }\n  ]\n}");
 #endif
         fclose(t);
     }
@@ -183,11 +184,32 @@ void criarProjeto(const char* nome) {
     criarAmbienteVscode(nome);
 
     printf("\n🚀 [GG] Projeto \"%s\" inicializado com sucesso e pronto para desenvolvimento!\n", nome);
-    printf("👉 Execute: kosmos run \"%s\" para compilar e rodar instantaneamente de forma leve.\n", nome);
+    printf("👉 Execute: kosmos build \"%s\" para compilar e rodar a árvore completa.\n", nome);
 }
 
-// 🌟 FUNÇÃO DE COMPILAÇÃO REUTILIZÁVEL E UNIFICADA (Suporta compilar Completo, Rápido e Debug)
-void executarPipelineBuild(const char* nome, int gerarAppImage, int modoDebug) {
+void executarDireto(const char* nome) {
+    const char* nomeExecutavel = (strcmp(nome, ".") == 0) ? "projeto" : nome;
+    char cmdRun[1024];
+
+#ifdef _WIN32
+    printf("🚀 Executando binário Windows nativo diretamente...\n");
+    if (strcmp(nome, ".") == 0) {
+        sprintf(cmdRun, "output\\%s.exe", nomeExecutavel);
+    } else {
+        sprintf(cmdRun, "cd \"%s\" && output\\%s.exe", nome, nomeExecutavel);
+    }
+#else
+    printf("🍷 Rodando binário Windows no Linux via Wine isolado...\n");
+    if (strcmp(nome, ".") == 0) {
+        sprintf(cmdRun, "wine output/%s.exe", nomeExecutavel);
+    } else {
+        sprintf(cmdRun, "cd \"%s\" && wine output/%s.exe", nome, nomeExecutavel);
+    }
+#endif
+    system(cmdRun);
+}
+
+void compilarProjeto(const char* nome, int modoDebug) {
     checarEInstalarCompilador();
 
     const char* nomeExecutavel = (strcmp(nome, ".") == 0) ? "projeto" : nome;
@@ -250,7 +272,7 @@ void executarPipelineBuild(const char* nome, int gerarAppImage, int modoDebug) {
     strcpy(pastaKosmosLimpa, pastaKosmos);
     for (int i = 0; pastaKosmosLimpa[i] != '\0'; i++) {
         if (pastaKosmosLimpa[i] == '\\') {
-            pastaKosmosLimpa[i] = '/';
+            box_i = '/'; // Normaliza para o windres não se perder com escapes
         }
     }
 
@@ -273,12 +295,12 @@ void executarPipelineBuild(const char* nome, int gerarAppImage, int modoDebug) {
 
 #ifdef _WIN32
     // =========================================================================
-    // --- FLUXO WINDOWS HOST ---
+    // --- FLUXO DO HOST WINDOWS ---
     // =========================================================================
     printf("🪟 [Windows Host] Iniciando compilação nativa...\n");
+    
     char cmdRes[1024];
-    // Adicionado flag --preprocessor=gcc para blindar o windres
-    sprintf(cmdRes, "windres --preprocessor=gcc -I \"%s\" -i \"%s\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, rcTemporario, arquivoObjeto);
+    sprintf(cmdRes, "windres -I \"%s\" -i \"%s\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, rcTemporario, arquivoObjeto);
     int rRes = system(cmdRes);
 
     char cmdCleanTemp[1024];
@@ -291,142 +313,162 @@ void executarPipelineBuild(const char* nome, int gerarAppImage, int modoDebug) {
     }
 
     char cmdWin[4096];
-    const char* flagSubsystem = modoDebug ? "console" : "windows";
+    // Se modoDebug = 1, usa o subsistema 'console', senão remove o terminal usando o padrão 'windows'
+    const char* subsistema = modoDebug ? "console" : "windows";
     
-    sprintf(cmdWin, "gcc -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -lcomdlg32 -Wl,--subsystem,%s ", 
-            pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida, flagSubsystem);
+    sprintf(cmdWin, "gcc -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -Wl,--subsystem,%s -municode -lcomdlg32", 
+            pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida, subsistema);
     
-    printf("⚙️  Vinculando binários e injetando tabelas de símbolos...\n");
+    printf("⚙️  Vinculando binários e injetando tabelas de símbolos estáticos...\n");
     int res = system(cmdWin);
     
     if (res == 0) {
         printf("✅ [Sucesso] Executável do Windows gerado em: %s\n", arquivoSaida);
         
-        if (gerarAppImage) {
-            // Bloco completo de geração do AppImage quando chamado via `kosmos build`
-            printf("\n[1/7] Limpando build anterior...\n");
-            char cmdClean[1024];
-            sprintf(cmdClean, "if exist \"%s\\output\\linux\\%s.AppDir\" rmdir /S /Q \"%s\\output\\linux\\%s.AppDir\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdClean);
-            
-            char cmdMk[1024];
-            sprintf(cmdMk, "if not exist \"%s\\output\\linux\\%s.AppDir\\usr\\bin\" mkdir \"%s\\output\\linux\\%s.AppDir\\usr\\bin\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdMk);
-            sprintf(cmdMk, "if not exist \"%s\\output\\linux\\%s.AppDir\\usr\\lib\" mkdir \"%s\\output\\linux\\%s.AppDir\\usr\\lib\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdMk);
-
-            printf("[2/7] Copiando executável Windows do projeto (%s)...\n", arquivoSaida);
-            char cmdCp[1024];
-            sprintf(cmdCp, "copy /Y \"%s\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\%s.exe\" > nul", arquivoSaida, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
-
-            char cmdCheckRes[1024];
-            sprintf(cmdCheckRes, "if exist \"%s\\resource\" (xcopy /E /I /Y \"%s\\resource\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\resource\" > nul)", pathPrefixo, pathPrefixo, pathPrefixo, nomeExecutavel); system(cmdCheckRes);
-
-            char pathIcon[1024];
-            sprintf(pathIcon, "%s\\resource\\icon.png", pathPrefixo);
-            FILE *fIcon = fopen(pathIcon, "r");
-            if (fIcon) {
-                fclose(fIcon);
-                sprintf(cmdCp, "copy /Y \"%s\\resource\\icon.png\" \"%s\\output\\linux\\%s.AppDir\\%s.png\" > nul", pathPrefixo, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
+        // Se estiver em modo debug, apenas roda diretamente o executável Windows sem montar o AppImage
+        if (modoDebug) {
+            printf("\n🚀 [DEBUG-RUN] Inicializando aplicação anexada ao terminal atual...\n");
+            char cmdRunWin[1024];
+            if (strcmp(nome, ".") == 0) {
+                sprintf(cmdRunWin, "\"%s\"", arquivoSaida);
             } else {
-                char pathMockIcon[1024];
-                sprintf(pathMockIcon, "%s\\output\\linux\\%s.AppDir\\%s.png", pathPrefixo, nomeExecutavel, nomeExecutavel);
-                FILE *fMock = fopen(pathMockIcon, "wb"); if (fMock) fclose(fMock);
+                sprintf(cmdRunWin, "cd \"%s\" && \"output\\%s.exe\"", pathPrefixo, nomeExecutavel);
             }
-
-            sprintf(cmdMk, "if not exist \"%s\\tools\" mkdir \"%s\\tools\"", pathPrefixo, pathPrefixo); system(cmdMk);
-
-            printf("[3/7] Verificando Wine-Staging 10.0 Portátil em tools/...\n");
-            char pathWineCheck[1024]; sprintf(pathWineCheck, "%s\\tools\\wine-portable.tar.xz", pathPrefixo);
-            FILE *fWine = fopen(pathWineCheck, "r");
-            if (!fWine) {
-                printf("Baixando Wine 10.0...\n");
-                char cmdWineDl[2048];
-                sprintf(cmdWineDl, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://github.com/Kron4ek/Wine-Builds/releases/download/10.0/wine-10.0-staging-amd64.tar.xz' -OutFile '%s\\tools\\wine-portable.tar.xz'\"", pathPrefixo);
-                system(cmdWineDl);
-            } else {
-                fclose(fWine);
-            }
-
-            printf("Extraindo Wine para dentro do pacote...\n");
-            char cmdExtract[2048];
-            sprintf(cmdExtract, "tar -xf \"%s\\tools\\wine-portable.tar.xz\" --exclude=\"*/winecpp\" --exclude=\"*/wineg++\" -C \"%s\\output\\linux\\%s.AppDir\\usr\" --strip-components=1", pathPrefixo, pathPrefixo, nomeExecutavel);
-            system(cmdExtract);
-
-            printf("[4/7] Criando AppRun Dinâmico...\n");
-            char pathAppRun[1024]; sprintf(pathAppRun, "%s\\output\\linux\\%s.AppDir\\AppRun", pathPrefixo, nomeExecutavel);
-            FILE *fAppRun = fopen(pathAppRun, "wb"); 
-            if (fAppRun) {
-                fprintf(fAppRun, "#!/bin/bash\n\n");
-                fprintf(fAppRun, "HERE=\"$(dirname \"$(readlink -f \"${0}\")\")\"\n");
-                fprintf(fAppRun, "export PATH=\"$HERE/usr/bin:$PATH\"\n");
-                fprintf(fAppRun, "export LD_LIBRARY_PATH=\"$HERE/usr/lib:$HERE/usr/lib64:$LD_LIBRARY_PATH\"\n");
-                fprintf(fAppRun, "export WINEPREFIX=\"$HOME/.wine_kosmos_%s\"\n", nomeExecutavel);
-                fprintf(fAppRun, "mkdir -p \"$WINEPREFIX\"\n\n");
-                fprintf(fAppRun, "export WINEDEBUG=-all\nexport WINEARCH=win64\n\n");
-                fprintf(fAppRun, "if [ ! -f \"$WINEPREFIX/configured\" ]; then\n");
-                fprintf(fAppRun, "    echo \"Iniciando prefixo Wine...\"\n");
-                fprintf(fAppRun, "    \"$HERE/usr/bin/wineboot\" -u\n");
-                fprintf(fAppRun, "    touch \"$WINEPREFIX/configured\"\nfi\n\n");
-                fprintf(fAppRun, "LINUX_SCALE=$(gsettings get org.gnome.desktop.interface scaling-factor 2>/dev/null | awk '{print $2}')\n\n");
-                fprintf(fAppRun, "if [ -z \"$LINUX_SCALE\" ] || [ \"$LINUX_SCALE\" = \"0\" ]; then\n");
-                fprintf(fAppRun, "    X_DPI=$(xrdb -query 2>/dev/null | grep dpi | awk '{print $2}' | cut -d. -f1)\n");
-                fprintf(fAppRun, "    if [ -z \"$X_DPI\" ]; then X_DPI=130; fi\nelse\n    X_DPI=$((LINUX_SCALE * 192))\nfi\n\n");
-                fprintf(fAppRun, "if [ \"$X_DPI\" -eq 96 ]; then\n");
-                fprintf(fAppRun, "    TEXT_SCALE=$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null)\n");
-                fprintf(fAppRun, "    if [ ! -z \"$TEXT_SCALE\" ] && [ \"$TEXT_SCALE\" != \"1.0\" ]; then\n");
-                fprintf(fAppRun, "        if (( $(echo \"$TEXT_SCALE == 1.25\" | bc -l 2>/dev/null || echo 0) )); then X_DPI=120; fi\n");
-                fprintf(fAppRun, "        if (( $(echo \"$TEXT_SCALE == 1.5\" | bc -l 2>/dev/null || echo 0) )); then X_DPI=144; fi\n");
-                fprintf(fAppRun, "    fi\nfi\n\n");
-                fprintf(fAppRun, "DPI_HEX=$(printf \"%%%%08x\" $X_DPI)\n");
-                fprintf(fAppRun, "echo \"[KOSMOS] Monitor detectado: Aplicando $X_DPI DPI dinamicamente (Hex: $DPI_HEX)...\"\n\n");
-                fprintf(fAppRun, "cat <<REG > \"$WINEPREFIX/config.reg\"\nREGEDIT4\n\n");
-                fprintf(fAppRun, "[HKEY_CURRENT_USER\\Control Panel\\Desktop]\n\"LogPixels\"=dword:$DPI_HEX\n\"FontSmoothing\"=\"2\"\n\"FontSmoothingType\"=dword:00000002\n\"FontSmoothingOrientation\"=dword:00000001\n\"FontSmoothingGamma\"=dword:000004b0\n\"ForegroundLockTimeout\"=dword:00000000\n\n");
-                fprintf(fAppRun, "[HKEY_CURRENT_USER\\Software\\Wine\\X11 Driver]\n\"Decorated\"=\"Y\"\n\"Managed\"=\"Y\"\n\"UseTakeFocus\"=\"N\"\n\n");
-                fprintf(fAppRun, "[HKEY_CURRENT_USER\\Software\\Wine\\Fonts]\n\"Antialias\"=\"Y\"\n\n");
-                fprintf(fAppRun, "[HKEY_CURRENT_USER\\Control Panel\\Colors]\n\"ActiveBorder\"=\"200 200 200\"\n\"ActiveTitle\"=\"255 255 255\"\n\"AppWorkspace\"=\"255 255 255\"\n\"Background\"=\"255 255 255\"\n\"ButtonAlternateFace\"=\"255 255 255\"\n\"ButtonDkShadow\"=\"160 160 160\"\n\"ButtonFace\"=\"243 243 243\"\n\"ButtonHilight\"=\"255 255 255\"\n\"ButtonLight\"=\"243 243 243\"\n\"ButtonShadow\"=\"200 200 200\"\n\"ButtonText\"=\"0 0 0\"\n\"GradientActiveTitle\"=\"255 255 255\"\n\"GradientInactiveTitle\"=\"243 243 243\"\n\"GrayText\"=\"120 120 120\"\n\"Hilight\"=\"0 120 215\"\n\"HilightText\"=\"255 255 255\"\n\"HotTrackingColor\"=\"0 102 204\"\n\"InactiveBorder\"=\"243 243 243\"\n\"InactiveTitle\"=\"243 243 243\"\n\"InactiveTitleText\"=\"120 120 120\"\n\"InfoText\"=\"0 0 0\"\n\"InfoWindow\"=\"255 255 255\"\n\"Menu\"=\"255 255 255\"\n\"MenuBar\"=\"243 243 243\"\n\"MenuHilight\"=\"230 230 230\"\n\"MenuText\"=\"0 0 0\"\n\"Scrollbar\"=\"243 243 243\"\n\"TitleText\"=\"0 0 0\"\n\"Window\"=\"255 255 255\"\n\"WindowFrame\"=\"200 200 200\"\n\"WindowText\"=\"0 0 0\"\n\n");
-                fprintf(fAppRun, "[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes]\n\"MS Shell Dlg\"=\"Segoe UI\"\n\"MS Shell Dlg 2\"=\"Segoe UI\"\n\"Tahoma\"=\"Segoe UI\"\n\"Arial\"=\"Segoe UI\"\nREG\n\n");
-                fprintf(fAppRun, "\"$HERE/usr/bin/regedit\" /S \"$WINEPREFIX/config.reg\"\n");
-                fprintf(fAppRun, "cd \"$HERE/usr/bin\"\n");
-                fprintf(fAppRun, "exec \"$HERE/usr/bin/wine\" \"$HERE/usr/bin/%s.exe\" \"$@\"\n", nomeExecutavel);
-                fclose(fAppRun);
-            }
-
-            printf("[5/7] Criar .desktop...\n");
-            char pathDesktop[1024]; sprintf(pathDesktop, "%s\\output\\linux\\%s.AppDir\\%s.desktop", pathPrefixo, nomeExecutavel, nomeExecutavel);
-            FILE *fDesktop = fopen(pathDesktop, "wb");
-            if (fDesktop) {
-                fprintf(fDesktop, "[Desktop Entry]\nName=%s\nExec=AppRun\nIcon=%s\nType=Application\nCategories=Development;\n", nomeExecutavel, nomeExecutavel);
-                fclose(fDesktop);
-            }
-
-            printf("[6/7] Verificando Runtime do AppImage...\n");
-            char pathRuntimeCheck[1024]; sprintf(pathRuntimeCheck, "%s\\tools\\runtime-x86_64", pathPrefixo);
-            FILE *fRuntime = fopen(pathRuntimeCheck, "r");
-            if (!fRuntime) {
-                char cmdRtDl[2048];
-                sprintf(cmdRtDl, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-x86_64' -OutFile '%s\\tools\\runtime-x86_64'\"", pathPrefixo);
-                system(cmdRtDl);
-            } else {
-                fclose(fRuntime);
-            }
-
-            printf("[7/7] Empacotando AppImage...\n");
-            char cmdMksquash[2048];
-            sprintf(cmdMksquash, "\"\"%s\\mksquashfs.exe\" \"%s\\output\\linux\\%s.AppDir\" \"%s\\output\\linux\\fs.squashfs\" -root-owned -noappend -comp xz -b 1M\"\"", pastaMsys, pathPrefixo, nomeExecutavel, pathPrefixo);
-            int rSquash = system(cmdMksquash);
-            if (rSquash != 0) { printf("ERRO: mksquashfs não encontrado.\n"); exit(1); }
-
-            char cmdMerge[2048];
-            sprintf(cmdMerge, "copy /b \"%s\\tools\\runtime-x86_64\" + \"%s\\output\\linux\\fs.squashfs\" \"%s\\output\\linux\\%s-x86_64.AppImage\" > nul", pathPrefixo, pathPrefixo, pathPrefixo, nomeExecutavel);
-            system(cmdMerge);
-            
-            char cmdCleanUp[1024];
-            sprintf(cmdCleanUp, "del /Q \"%s\\output\\linux\\fs.squashfs\" && rmdir /S /Q \"%s\\output\\linux\\%s.AppDir\"", pathPrefixo, pathPrefixo, nomeExecutavel);
-            system(cmdCleanUp);
-
-            printf(" ✅ SUCESSO! AppImage criado em: %s\\output\\linux\\%s-x86_64.AppImage\n", pathPrefixo, nomeExecutavel);
+            system(cmdRunWin);
+            return;
         }
 
-        // 🚀 AUTO-RUN DO WINDOWS HOST
-        printf("\n🚀 [AUTO-RUN] Executando binário nativo local...\n");
+        // --- Fluxo Padrão de Geração de AppImage no Windows Host ---
+        printf("\n[1/7] Limpando build anterior...\n");
+        char cmdClean[1024];
+        sprintf(cmdClean, "if exist \"%s\\output\\linux\\%s.AppDir\" rmdir /S /Q \"%s\\output\\linux\\%s.AppDir\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdClean);
+        
+        char cmdMk[1024];
+        sprintf(cmdMk, "if not exist \"%s\\output\\linux\\%s.AppDir\\usr\\bin\" mkdir \"%s\\output\\linux\\%s.AppDir\\usr\\bin\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdMk);
+        sprintf(cmdMk, "if not exist \"%s\\output\\linux\\%s.AppDir\\usr\\lib\" mkdir \"%s\\output\\linux\\%s.AppDir\\usr\\lib\"", pathPrefixo, nomeExecutavel, pathPrefixo, nomeExecutavel); system(cmdMk);
+
+        printf("[2/7] Copiando executável Windows do projeto (%s)...\n", arquivoSaida);
+        char cmdCp[1024];
+        sprintf(cmdCp, "copy /Y \"%s\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\%s.exe\" > nul", arquivoSaida, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
+
+        char cmdCheckRes[1024];
+        sprintf(cmdCheckRes, "if exist \"%s\\resource\" (xcopy /E /I /Y \"%s\\resource\" \"%s\\output\\linux\\%s.AppDir\\usr\\bin\\resource\" > nul)", pathPrefixo, pathPrefixo, pathPrefixo, nomeExecutavel); system(cmdCheckRes);
+
+        char pathIcon[1024];
+        sprintf(pathIcon, "%s\\resource\\icon.png", pathPrefixo);
+        FILE *fIcon = fopen(pathIcon, "r");
+        if (fIcon) {
+            fclose(fIcon);
+            sprintf(cmdCp, "copy /Y \"%s\\resource\\icon.png\" \"%s\\output\\linux\\%s.AppDir\\%s.png\" > nul", pathPrefixo, pathPrefixo, nomeExecutavel, nomeExecutavel); system(cmdCp);
+        } else {
+            char pathMockIcon[1024];
+            sprintf(pathMockIcon, "%s\\output\\linux\\%s.AppDir\\%s.png", pathPrefixo, nomeExecutavel, nomeExecutavel);
+            FILE *fMock = fopen(pathMockIcon, "wb"); if (fMock) fclose(fMock);
+        }
+
+        sprintf(cmdMk, "if not exist \"%s\\tools\" mkdir \"%s\\tools\"", pathPrefixo, pathPrefixo); system(cmdMk);
+
+        printf("[3/7] Verificando Wine-Staging 10.0 Portátil em tools/...\n");
+        char pathWineCheck[1024]; sprintf(pathWineCheck, "%s\\tools\\wine-portable.tar.xz", pathPrefixo);
+        FILE *fWine = fopen(pathWineCheck, "r");
+        if (!fWine) {
+            printf("Baixando Wine 10.0 (Isso pode demorar um pouco)...\n");
+            char cmdWineDl[2048];
+            sprintf(cmdWineDl, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://github.com/Kron4ek/Wine-Builds/releases/download/10.0/wine-10.0-staging-amd64.tar.xz' -OutFile '%s\\tools\\wine-portable.tar.xz'\"", pathPrefixo);
+            system(cmdWineDl);
+        } else {
+            fclose(fWine);
+        }
+
+        printf("Extraindo Wine para dentro do pacote...\n");
+        char cmdExtract[2048];
+        sprintf(cmdExtract, "tar -xf \"%s\\tools\\wine-portable.tar.xz\" --exclude=\"*/winecpp\" --exclude=\"*/wineg++\" -C \"%s\\output\\linux\\%s.AppDir\\usr\" --strip-components=1", pathPrefixo, pathPrefixo, nomeExecutavel);
+        system(cmdExtract);
+
+        printf("[4/7] Criando AppRun Dinâmico (Auto-DPI Baseado no Monitor do Usuário)...\n");
+        char pathAppRun[1024]; sprintf(pathAppRun, "%s\\output\\linux\\%s.AppDir\\AppRun", pathPrefixo, nomeExecutavel);
+        FILE *fAppRun = fopen(pathAppRun, "wb"); 
+        if (fAppRun) {
+            fprintf(fAppRun, "#!/bin/bash\n\n");
+            fprintf(fAppRun, "HERE=\"$(dirname \"$(readlink -f \"${0}\")\")\"\n");
+            fprintf(fAppRun, "export PATH=\"$HERE/usr/bin:$PATH\"\n");
+            fprintf(fAppRun, "export LD_LIBRARY_PATH=\"$HERE/usr/lib:$HERE/usr/lib64:$LD_LIBRARY_PATH\"\n");
+            fprintf(fAppRun, "export WINEPREFIX=\"$HOME/.wine_kosmos_%s\"\n", nomeExecutavel);
+            fprintf(fAppRun, "mkdir -p \"$WINEPREFIX\"\n\n");
+            fprintf(fAppRun, "export WINEDEBUG=-all\nexport WINEARCH=win64\n\n");
+            fprintf(fAppRun, "if [ ! -f \"$WINEPREFIX/configured\" ]; then\n");
+            fprintf(fAppRun, "    echo \"Iniciando prefixo Wine...\"\n");
+            fprintf(fAppRun, "    \"$HERE/usr/bin/wineboot\" -u\n");
+            fprintf(fAppRun, "    touch \"$WINEPREFIX/configured\"\nfi\n\n");
+            fprintf(fAppRun, "LINUX_SCALE=$(gsettings get org.gnome.desktop.interface scaling-factor 2>/dev/null | awk '{print $2}')\n\n");
+            fprintf(fAppRun, "if [ -z \"$LINUX_SCALE\" ] || [ \"$LINUX_SCALE\" = \"0\" ]; then\n");
+            fprintf(fAppRun, "    X_DPI=$(xrdb -query 2>/dev/null | grep dpi | awk '{print $2}' | cut -d. -f1)\n");
+            fprintf(fAppRun, "    if [ -z \"$X_DPI\" ]; then X_DPI=130; fi\nelse\n    X_DPI=$((LINUX_SCALE * 192))\nfi\n\n");
+            fprintf(fAppRun, "if [ \"$X_DPI\" -eq 96 ]; then\n");
+            fprintf(fAppRun, "    TEXT_SCALE=$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null)\n");
+            fprintf(fAppRun, "    if [ ! -z \"$TEXT_SCALE\" ] && [ \"$TEXT_SCALE\" != \"1.0\" ]; then\n");
+            fprintf(fAppRun, "        if (( $(echo \"$TEXT_SCALE == 1.25\" | bc -l 2>/dev/null || echo 0) )); then X_DPI=120; fi\n");
+            fprintf(fAppRun, "        if (( $(echo \"$TEXT_SCALE == 1.5\" | bc -l 2>/dev/null || echo 0) )); then X_DPI=144; fi\n");
+            fprintf(fAppRun, "    fi\nfi\n\n");
+            fprintf(fAppRun, "DPI_HEX=$(printf \"%%%%08x\" $X_DPI)\n");
+            fprintf(fAppRun, "echo \"[KOSMOS] Monitor detectado: Aplicando $X_DPI DPI dinamicamente (Hex: $DPI_HEX)...\"\n\n");
+            
+            fprintf(fAppRun, "cat <<REG > \"$WINEPREFIX/config.reg\"\nREGEDIT4\n\n");
+            fprintf(fAppRun, "[HKEY_CURRENT_USER\\Control Panel\\Desktop]\n\"LogPixels\"=dword:$DPI_HEX\n\"FontSmoothing\"=\"2\"\n\"FontSmoothingType\"=dword:00000002\n\"FontSmoothingOrientation\"=dword:00000001\n\"FontSmoothingGamma\"=dword:000004b0\n\"ForegroundLockTimeout\"=dword:00000000\n\n");
+            fprintf(fAppRun, "[HKEY_CURRENT_USER\\Software\\Wine\\X11 Driver]\n\"Decorated\"=\"Y\"\n\"Managed\"=\"Y\"\n\"UseTakeFocus\"=\"N\"\n\n");
+            fprintf(fAppRun, "[HKEY_CURRENT_USER\\Software\\Wine\\Fonts]\n\"Antialias\"=\"Y\"\n\n");
+            fprintf(fAppRun, "[HKEY_CURRENT_USER\\Control Panel\\Colors]\n\"ActiveBorder\"=\"200 200 200\"\n\"ActiveTitle\"=\"255 255 255\"\n\"AppWorkspace\"=\"255 255 255\"\n\"Background\"=\"255 255 255\"\n\"ButtonAlternateFace\"=\"255 255 255\"\n\"ButtonDkShadow\"=\"160 160 160\"\n\"ButtonFace\"=\"243 243 243\"\n\"ButtonHilight\"=\"255 255 255\"\n\"ButtonLight\"=\"243 243 243\"\n\"ButtonShadow\"=\"200 200 200\"\n\"ButtonText\"=\"0 0 0\"\n\"GradientActiveTitle\"=\"255 255 255\"\n\"GradientInactiveTitle\"=\"243 243 243\"\n\"GrayText\"=\"120 120 120\"\n\"Hilight\"=\"0 120 215\"\n\"HilightText\"=\"255 255 255\"\n\"HotTrackingColor\"=\"0 102 204\"\n\"InactiveBorder\"=\"243 243 243\"\n\"InactiveTitle\"=\"243 243 243\"\n\"InactiveTitleText\"=\"120 120 120\"\n\"InfoText\"=\"0 0 0\"\n\"InfoWindow\"=\"255 255 255\"\n\"Menu\"=\"255 255 255\"\n\"MenuBar\"=\"243 243 243\"\n\"MenuHilight\"=\"230 230 230\"\n\"MenuText\"=\"0 0 0\"\n\"Scrollbar\"=\"243 243 243\"\n\"TitleText\"=\"0 0 0\"\n\"Window\"=\"255 255 255\"\n\"WindowFrame\"=\"200 200 200\"\n\"WindowText\"=\"0 0 0\"\n\n");
+            fprintf(fAppRun, "[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes]\n\"MS Shell Dlg\"=\"Segoe UI\"\n\"MS Shell Dlg 2\"=\"Segoe UI\"\n\"Tahoma\"=\"Segoe UI\"\n\"Arial\"=\"Segoe UI\"\nREG\n\n");
+            fprintf(fAppRun, "\"$HERE/usr/bin/regedit\" /S \"$WINEPREFIX/config.reg\"\n");
+            fprintf(fAppRun, "cd \"$HERE/usr/bin\"\n");
+            fprintf(fAppRun, "exec \"$HERE/usr/bin/wine\" \"$HERE/usr/bin/%s.exe\" \"$@\"\n", nomeExecutavel);
+            fclose(fAppRun);
+        }
+
+        printf("[5/7] Criar .desktop...\n");
+        char pathDesktop[1024]; sprintf(pathDesktop, "%s\\output\\linux\\%s.AppDir\\%s.desktop", pathPrefixo, nomeExecutavel, nomeExecutavel);
+        FILE *fDesktop = fopen(pathDesktop, "wb");
+        if (fDesktop) {
+            fprintf(fDesktop, "[Desktop Entry]\nName=%s\nExec=AppRun\nIcon=%s\nType=Application\nCategories=Development;\n", nomeExecutavel, nomeExecutavel);
+            fclose(fDesktop);
+        }
+
+        printf("[6/7] Verificando Runtime do AppImage em tools/...\n");
+        char pathRuntimeCheck[1024]; sprintf(pathRuntimeCheck, "%s\\tools\\runtime-x86_64", pathPrefixo);
+        FILE *fRuntime = fopen(pathRuntimeCheck, "r");
+        if (!fRuntime) {
+            printf("Baixando Runtime...\n");
+            char cmdRtDl[2048];
+            sprintf(cmdRtDl, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-x86_64' -OutFile '%s\\tools\\runtime-x86_64'\"", pathPrefixo);
+            system(cmdRtDl);
+        } else {
+            fclose(fWine); // Correção de segurança de descritor
+        }
+
+        printf("[7/7] Empacotando AppImage...\n");
+        char cmdMksquash[2048];
+        sprintf(cmdMksquash, "\"\"%s\\mksquashfs.exe\" \"%s\\output\\linux\\%s.AppDir\" \"%s\\output\\linux\\fs.squashfs\" -root-owned -noappend -comp xz -b 1M\"\"", pastaMsys, pathPrefixo, nomeExecutavel, pathPrefixo);
+        int rSquash = system(cmdMksquash);
+        
+        if (rSquash != 0) {
+            printf("ERRO: mksquashfs não encontrado. Certifique-se de possuir o mksquashfs.exe in %s\n", pastaMsys);
+            exit(1);
+        }
+
+        char cmdMerge[2048];
+        sprintf(cmdMerge, "copy /b \"%s\\tools\\runtime-x86_64\" + \"%s\\output\\linux\\fs.squashfs\" \"%s\\output\\linux\\%s-x86_64.AppImage\" > nul", pathPrefixo, pathPrefixo, pathPrefixo, nomeExecutavel);
+        system(cmdMerge);
+        
+        char cmdCleanUp[1024];
+        sprintf(cmdCleanUp, "del /Q \"%s\\output\\linux\\fs.squashfs\" && rmdir /S /Q \"%s\\output\\linux\\%s.AppDir\"", pathPrefixo, pathPrefixo, nomeExecutavel);
+        system(cmdCleanUp);
+
+        printf("======================================================\n");
+        printf(" ✅ SUCESSO! AppImage COM AUTO-DPI DINÂMICO CRIADO:\n");
+        printf(" 📍 Localização: %s\\output\\linux\\%s-x86_64.AppImage\n", pathPrefixo, nomeExecutavel);
+        printf("======================================================\n");
+
+        printf("\n🚀 [AUTO-RUN] Executando binário sem console por padrão...\n");
         char cmdRunWin[1024];
         if (strcmp(nome, ".") == 0) {
             sprintf(cmdRunWin, "\"%s\"", arquivoSaida);
@@ -437,11 +479,24 @@ void executarPipelineBuild(const char* nome, int gerarAppImage, int modoDebug) {
     } else {
         printf("❌ Erro durante o build local do Windows.\n");
     }
-
 #else
     // =========================================================================
-    // --- FLUXO LINUX HOST ---
+    // --- FLUXO DO HOST LINUX ---
     // =========================================================================
+    FILE* fTempLinux = fopen(rcTemporario, "w");
+    if (fTempLinux) {
+        fprintf(fTempLinux, "1 24 \"%s/kosmos.exe.manifest\"\n\n", pastaKosmos);
+        FILE* fOrigLinux = fopen(rcOriginal, "r");
+        if (fOrigLinux) {
+            char ch;
+            while ((ch = fgetc(fOrigLinux)) != EOF) {
+                fputc(ch, fTempLinux);
+            }
+            fclose(fOrigLinux);
+        }
+        fclose(fTempLinux);
+    }
+
     printf("🔨 [1/3] Processando Recursos com Manifesto Acoplado -> %s\n", rcTemporario);
     char cmdWindres[2048];
     sprintf(cmdWindres, "/usr/bin/x86_64-w64-mingw32-windres -I \"%s\" -i \"%s\" -o \"%s\" -O coff -F pe-x86-64", pastaResource, rcTemporario, arquivoObjeto);
@@ -453,57 +508,52 @@ void executarPipelineBuild(const char* nome, int gerarAppImage, int modoDebug) {
     
     printf("🚀 [2/3] Executando Cross-Compiler GCC (MinGW-w64) -> %s\n", arquivoSaida);
     char cmdGcc[4096];
-    const char* flagSubsystem = modoDebug ? "console" : "windows";
+    const char* subsistemaLinux = modoDebug ? "console" : "windows";
 
-    sprintf(cmdGcc, "/usr/bin/x86_64-w64-mingw32-gcc -g -Wall -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -Wl,--subsystem,%s -municode -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -lcomdlg32", 
-            flagSubsystem, pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
+    sprintf(cmdGcc, "/usr/bin/x86_64-w64-mingw32-gcc -mwindows -g -Wall -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -Wl,--subsystem,%s -municode -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -lcomdlg32", 
+            subsistemaLinux, pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
     int r2 = system(cmdGcc);
 
-    int r4 = 0;
-    if (gerarAppImage) {
-        printf("📦 [3/3] Gerando Empacotamento Estável AppImage...\n");
-        char cmdPackage[1024];
-        if (strcmp(nome, ".") == 0) {
-            sprintf(cmdPackage, "bash tools/package_linux.sh \"%s\"", nomeExecutavel);
+    if (modoDebug) {
+        if (r1 == 0 && r2 == 0) {
+            printf("✅ [Sucesso] Compilação do módulo de depuração efetuada.\n");
+            printf("🚀 [DEBUG-RUN] Inicializando instância do Wine acoplada ao terminal atual...\n");
+            char cmdRunLinux[1024];
+            if (strcmp(nome, ".") == 0) {
+                sprintf(cmdRunLinux, "wine %s", arquivoSaida);
+            } else {
+                sprintf(cmdRunLinux, "cd \"%s\" && wine output/%s.exe", nome, nomeExecutavel);
+            }
+            system(cmdRunLinux);
         } else {
-            sprintf(cmdPackage, "cd \"%s\" && bash tools/package_linux.sh \"%s\"", nome, nomeExecutavel);
+            printf("❌ Erro ao compilar a árvore em modo debug.\n");
         }
-        r4 = system(cmdPackage);
-    } else {
-        printf("⚡ [3/3] Pulando empacotamento pesado SquashFS (Modo Fast Run ativo!).\n");
+        return; // Finaliza aqui para ignorar a montagem do AppImage
     }
 
+    printf("📦 [3/3] Gerando Empacotamento Estável AppImage...\n");
+    char cmdPackage[1024];
+    if (strcmp(nome, ".") == 0) {
+        sprintf(cmdPackage, "bash tools/package_linux.sh \"%s\"", nomeExecutavel);
+    } else {
+        sprintf(cmdPackage, "cd \"%s\" && bash tools/package_linux.sh \"%s\"", nome, nomeExecutavel);
+    }
+    int r4 = system(cmdPackage);
+
     if (r1 == 0 && r2 == 0 && r4 == 0) {
-        printf("✅ [Sucesso] Sequência de compilação executada com êxito!\n");
-        printf("🚀 [AUTO-RUN] Inicializando aplicação instantaneamente...\n");
-        
+        printf("✅ [Sucesso] Sequência de build executada com êxito! Projeto \"%s\" pronto.\n", nomeExecutavel);
+        printf("🚀 [AUTO-RUN] Executando pacote AppImage isolado agora...\n");
         char cmdRunLinux[1024];
-        if (gerarAppImage) {
-            // Executa o AppImage completo estável
-            if (strcmp(nome, ".") == 0) {
-                sprintf(cmdRunLinux, "./output/linux/%s-x86_64.AppImage", nomeExecutavel);
-            } else {
-                sprintf(cmdRunLinux, "./%s/output/linux/%s-x86_64.AppImage", nome, nomeExecutavel);
-            }
+        if (strcmp(nome, ".") == 0) {
+            sprintf(cmdRunLinux, "./output/linux/%s-x86_64.AppImage", nomeExecutavel);
         } else {
-            // 🌟 FAST RUN NO LINUX: Roda o .exe direto pelo Wine nativo sem demorar compilando a árvore SquashFS!
-            const char* envDebug = modoDebug ? "WINEDEBUG=+relay,+msg" : "WINEDEBUG=-all";
-            if (strcmp(nome, ".") == 0) {
-                sprintf(cmdRunLinux, "%s wine \"%s\"", envDebug, arquivoSaida);
-            } else {
-                sprintf(cmdRunLinux, "cd \"%s\" && %s wine \"output/%s.exe\"", pathPrefixo, envDebug, nomeExecutavel);
-            }
+            sprintf(cmdRunLinux, "./%s/output/linux/%s-x86_64.AppImage", nome, nomeExecutavel);
         }
         system(cmdRunLinux);
     } else {
         printf("❌ Erro em alguma etapa da compilação do projeto \"%s\".\n", nomeExecutavel);
     }
 #endif
-}
-
-// Mapeamento dos comandos legados mantendo compatibilidade retroativa
-void compilarProjeto(const char* nome) {
-    executarPipelineBuild(nome, 1, 0); // Modo Build Tradicional (Gera AppImage, Oculta Console)
 }
 
 void implantarPacotes(const char* nome) {
@@ -582,19 +632,17 @@ int main(int argc, char* argv[]) {
         if (argc < 3) { printf("❌ Erro: Especifique o nome do projeto. Ex: kosmos create \"LotecaApp\"\n"); return 1; }
         criarProjeto(argv[2]);
     } 
-    else if (strcmp(argv[1], "run") == 0) {
-        // 🌟 NOVO: Compilação ultraleve e direta sem AppImage
-        const char* projetoAlvo = (argc < 3) ? "." : argv[2];
-        executarPipelineBuild(projetoAlvo, 0, 0);
-    }
-    else if (strcmp(argv[1], "debug") == 0) {
-        // 🌟 NOVO: Ativa o console de log por trás (-Wl,--subsystem,console) e logs extras do Wine
-        const char* projetoAlvo = (argc < 3) ? "." : argv[2];
-        executarPipelineBuild(projetoAlvo, 0, 1);
-    }
     else if (strcmp(argv[1], "build") == 0) {
         const char* projetoAlvo = (argc < 3) ? "." : argv[2];
-        compilarProjeto(projetoAlvo);
+        compilarProjeto(projetoAlvo, 0); // Modo normal: compila e gera AppImage
+    }
+    else if (strcmp(argv[1], "run") == 0) {
+        const char* projetoAlvo = (argc < 3) ? "." : argv[2];
+        executarDireto(projetoAlvo);     // Executa sem buildar nada
+    }
+    else if (strcmp(argv[1], "debug") == 0) {
+        const char* projetoAlvo = (argc < 3) ? "." : argv[2];
+        compilarProjeto(projetoAlvo, 1); // Modo debug: ativa subsystem console e roda direto
     }
     else if (strcmp(argv[1], "deploy") == 0) {
         const char* projetoAlvo = (argc < 3) ? "." : argv[2];
