@@ -84,9 +84,9 @@ void mostrarAjuda() {
     printf("Uso: kosmos [comando] [argumentos]\n\n");
     printf("Comandos disponíveis:\n");
     printf("  create \"nome_projeto\"   Clona o repositório base e configura o .vscode\n");
-    printf("  build [nome_projeto]    Compila tudo, gera empacotamento completo e executa\n");
-    printf("  run [nome_projeto]      Apenas executa o binário .exe direto (Sem gerar AppImage)\n");
-    printf("  debug [nome_projeto]    Compila forçando o terminal ativo atrás da janela (Logs de printf)\n");
+    printf("  build [nome_projeto]    📦 Compila tudo, gera empacotamento completo (AppImage) e executa\n");
+    printf("  run [nome_projeto]      ⚡ COMPILA RÁPIDO e executa o binário .exe direto (Sem gerar AppImage)\n");
+    printf("  debug [nome_projeto]    🪲 Compila forçando o terminal ativo atrás da janela (Logs de printf)\n");
     printf("  deploy [nome_projeto]   Gera os pacotes de instalação finais (.deb e .exe)\n");
     printf("  version                 Exibe a versão atual do SDK\n");
     printf("================================================================================\n");
@@ -95,6 +95,7 @@ void mostrarAjuda() {
 void criarAmbienteVscode(const char* nomeProjeto) {
     char caminhoVscode[1024], caminhoTasks[1024], caminhoProps[1024], cmdMkdir[2048];
     
+// O #ifdef fica APENAS para os caminhos de pasta (por causa das barras \ e /)
 #ifdef _WIN32
     sprintf(caminhoVscode, "%s\\.vscode", nomeProjeto);
     sprintf(caminhoTasks, "%s\\.vscode\\tasks.json", nomeProjeto);
@@ -108,45 +109,39 @@ void criarAmbienteVscode(const char* nomeProjeto) {
 #endif
     system(cmdMkdir);
 
+    // 🌟 TASKS UNIVERSAL: O mesmo tasks.json roda "kosmos run" tanto no Windows quanto no Linux!
     FILE* t = fopen(caminhoTasks, "w");
     if (t) {
-#ifdef _WIN32
         fprintf(t, "{\n  \"version\": \"2.0.0\",\n  \"tasks\": [\n");
-        fprintf(t, "    {\n      \"label\": \"KosmosUI: Build & Run (Windows)\",\n      \"type\": \"shell\",\n      \"command\": \"kosmos build\",\n");
+        fprintf(t, "    {\n      \"label\": \"KosmosUI: Fast Run\",\n      \"type\": \"shell\",\n      \"command\": \"kosmos run\",\n");
         fprintf(t, "      \"group\": { \"kind\": \"build\", \"isDefault\": true },\n");
         fprintf(t, "      \"problemMatcher\": [\"$gcc\"],\n");
+        fprintf(t, "      \"presentation\": { \"echo\": true, \"reveal\": \"always\", \"focus\": true, \"panel\": \"shared\", \"clear\": true }\n    },\n");
+        fprintf(t, "    {\n      \"label\": \"KosmosUI: Debug Mode\",\n      \"type\": \"shell\",\n      \"command\": \"kosmos debug\",\n");
+        fprintf(t, "      \"problemMatcher\": [\"$gcc\"],\n");
         fprintf(t, "      \"presentation\": { \"echo\": true, \"reveal\": \"always\", \"focus\": true, \"panel\": \"shared\", \"clear\": true }\n    }\n  ]\n}");
-#else
-        fprintf(t, "{\n  \"version\": \"2.0.0\",\n  \"tasks\": [\n");
-        fprintf(t, "    {\n      \"label\": \"1. Compilar Recurso (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"/usr/bin/x86_64-w64-mingw32-windres\",\n");
-        fprintf(t, "      \"args\": [\"-I\", \"${workspaceFolder}/resource\", \"-i\", \"${workspaceFolder}/resource/resource.rc\", \"-o\", \"${workspaceFolder}/output/resource.o\", \"-O\", \"coff\", \"-F\", \"pe-x86-64\"],\n");
-        fprintf(t, "      \"group\": \"build\", \"problemMatcher\": [], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
-        fprintf(t, "    {\n      \"label\": \"3. Compilar Aplicação Principal (Linux)\",\n      \"type\": \"shell\",\n      \"command\": \"/usr/bin/x86_64-w64-mingw32-gcc\",\n");
-        fprintf(t, "      \"args\": [\"-mwindows\", \"-I\", \"${workspaceFolder}/resource\", \"-I\", \"${workspaceFolder}/tools/kosmos\", \"-g\", \"-Wall\", \"-D_WIN32_WINNT=0x0A00\", \"-DWINVER=0x0A00\", \"-DUNICODE\", \"-D_UNICODE\", \"${workspaceFolder}/src/main.c\", \"${workspaceFolder}/tools/kosmos/kosmos.c\", \"${workspaceFolder}/output/resource.o\", \"-o\", \"${workspaceFolder}/output/%s.exe\", \"-lshcore\", \"-lcomctl32\", \"-lgdi32\", \"-luser32\", \"-lshlwapi\", \"-lgdiplus\", \"-static-libgcc\", \"-static-libstdc++\", \"-Wl,--subsystem,windows\", \"-municode\"], \n", nomeProjeto);
-        fprintf(t, "      \"dependsOn\": [\"1. Compilar Recurso (Linux)\"], \"group\": \"build\", \"problemMatcher\": [\"$gcc\"], \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
-        fprintf(t, "    {\n      \"label\": \"5. Gerar AppImage (Linux)\",\n      \"type\": \"shell\", \"command\": \"bash\", \"args\": [\"${workspaceFolder}/tools/package_linux.sh\", \"%s\"],\n", nomeProjeto);
-        fprintf(t, "      \"dependsOn\": [\"3. Compilar Aplicação Principal (Linux)\"], \"group\": \"build\", \"presentation\": { \"reveal\": \"silent\" }\n    },\n");
-        fprintf(t, "    {\n      \"label\": \"Build All & Run (Linux)\", \"dependsOn\": [\"5. Gerar AppImage (Linux)\"], \"dependsOrder\": \"sequence\", \"group\": { \"kind\": \"build\", \"isDefault\": true },\n");
-        fprintf(t, "      \"type\": \"process\", \"command\": \"${workspaceFolder}/output/linux/%s-x86_64.AppImage\", \"args\": [],\n", nomeProjeto);
-        fprintf(t, "      \"presentation\": { \"echo\": false, \"reveal\": \"never\", \"focus\": false, \"panel\": \"shared\", \"showReuseMessage\": false, \"clear\": true }\n    }\n  ]\n}");
-#endif
         fclose(t);
     }
 
+    // 🌟 PROPERTIES UNIVERSAL: JSON contém as duas configs e o VS Code se vira pra achar a certa!
     FILE* p = fopen(caminhoProps, "w");
     if (p) {
-#ifdef _WIN32
-        fprintf(p, "{\n  \"configurations\": [\n    {\n      \"name\": \"Win32-GCC\",\n");
+        fprintf(p, "{\n  \"configurations\": [\n");
+        
+        // --- BLOCO DO WINDOWS ---
+        fprintf(p, "    {\n      \"name\": \"Win32\",\n");
         fprintf(p, "      \"includePath\": [\"${workspaceFolder}/**\", \"${workspaceFolder}/tools/kosmos/**\"],\n");
         fprintf(p, "      \"defines\": [\"_WIN32_WINNT=0x0A00\", \"WINVER=0x0A00\", \"UNICODE\", \"_UNICODE\", \"_WIN32\"],\n");
-        fprintf(p, "      \"compilerPath\": \"gcc\", \"cStandard\": \"c17\", \"cppStandard\": \"gnu++17\", \"intelliSenseMode\": \"windows-gcc-x64\"\n    }\n  ],\n  \"version\": 4\n}");
-#else
-        fprintf(p, "{\n  \"configurations\": [\n    {\n      \"name\": \"Linux-MinGW-w64\",\n");
+        fprintf(p, "      \"compilerPath\": \"gcc\", \"cStandard\": \"c17\", \"cppStandard\": \"gnu++17\", \"intelliSenseMode\": \"windows-gcc-x64\"\n    },\n");
+        
+        // --- BLOCO DO LINUX ---
+        fprintf(p, "    {\n      \"name\": \"Linux\",\n");
         fprintf(p, "      \"includePath\": [\"${workspaceFolder}/**\", \"/usr/x86_64-w64-mingw32/include\", \"/usr/share/mingw-w64/include\", \"${workspaceFolder}/tools/kosmos/**\"],\n");
         fprintf(p, "      \"defines\": [\"_WIN32_WINNT=0x0A00\", \"WINVER=0x0A00\", \"UNICODE\", \"_UNICODE\", \"__linux__\", \"_WIN32\"],\n");
         fprintf(p, "      \"compilerPath\": \"/usr/bin/x86_64-w64-mingw32-gcc\", \"cStandard\": \"c17\", \"cppStandard\": \"gnu++17\", \"intelliSenseMode\": \"linux-gcc-x64\",\n");
-        fprintf(p, "      \"browse\": { \"path\": [\"/usr/x86_64-w64-mingw32/include\", \"${workspaceFolder}\"], \"limitSymbolsToIncludedHeaders\": true }\n    }\n  ],\n  \"version\": 4\n}");
-#endif
+        fprintf(p, "      \"browse\": { \"path\": [\"/usr/x86_64-w64-mingw32/include\", \"${workspaceFolder}\"], \"limitSymbolsToIncludedHeaders\": true }\n    }\n");
+        
+        fprintf(p, "  ],\n  \"version\": 4\n}");
         fclose(p);
     }
 }
@@ -184,32 +179,11 @@ void criarProjeto(const char* nome) {
     criarAmbienteVscode(nome);
 
     printf("\n🚀 [GG] Projeto \"%s\" inicializado com sucesso e pronto para desenvolvimento!\n", nome);
-    printf("👉 Execute: kosmos build \"%s\" para compilar e rodar a árvore completa.\n", nome);
+    printf("👉 Execute: kosmos run \"%s\" para compilar e testar rapidamente.\n", nome);
 }
 
-void executarDireto(const char* nome) {
-    const char* nomeExecutavel = (strcmp(nome, ".") == 0) ? "projeto" : nome;
-    char cmdRun[1024];
-
-#ifdef _WIN32
-    printf("🚀 Executando binário Windows nativo diretamente...\n");
-    if (strcmp(nome, ".") == 0) {
-        sprintf(cmdRun, "output\\%s.exe", nomeExecutavel);
-    } else {
-        sprintf(cmdRun, "cd \"%s\" && output\\%s.exe", nome, nomeExecutavel);
-    }
-#else
-    printf("🍷 Rodando binário Windows no Linux via Wine isolado...\n");
-    if (strcmp(nome, ".") == 0) {
-        sprintf(cmdRun, "wine output/%s.exe", nomeExecutavel);
-    } else {
-        sprintf(cmdRun, "cd \"%s\" && wine output/%s.exe", nome, nomeExecutavel);
-    }
-#endif
-    system(cmdRun);
-}
-
-void compilarProjeto(const char* nome, int modoDebug) {
+// 🌟 NOVA ASSINATURA: Agora recebe `gerarAppImage` para saber se vai empacotar tudo no final
+void compilarProjeto(const char* nome, int modoDebug, int gerarAppImage) {
     checarEInstalarCompilador();
 
     const char* nomeExecutavel = (strcmp(nome, ".") == 0) ? "projeto" : nome;
@@ -325,9 +299,13 @@ void compilarProjeto(const char* nome, int modoDebug) {
     if (res == 0) {
         printf("✅ [Sucesso] Executável do Windows gerado em: %s\n", arquivoSaida);
         
-        // Se estiver em modo debug, apenas roda diretamente o executável Windows sem montar o AppImage
-        if (modoDebug) {
-            printf("\n🚀 [DEBUG-RUN] Inicializando aplicação anexada ao terminal atual...\n");
+        // 🌟 NOVA LÓGICA: Pula o empacotamento AppImage se for `kosmos run` ou `kosmos debug`
+        if (modoDebug || !gerarAppImage) {
+            if (modoDebug) {
+                printf("\n🚀 [DEBUG-RUN] Inicializando aplicação anexada ao terminal atual...\n");
+            } else {
+                printf("\n🚀 [FAST-RUN] Inicializando aplicação nativa rapidamente...\n");
+            }
             char cmdRunWin[1024];
             if (strcmp(nome, ".") == 0) {
                 sprintf(cmdRunWin, "\"%s\"", arquivoSaida);
@@ -335,7 +313,7 @@ void compilarProjeto(const char* nome, int modoDebug) {
                 sprintf(cmdRunWin, "cd \"%s\" && \"output\\%s.exe\"", pathPrefixo, nomeExecutavel);
             }
             system(cmdRunWin);
-            return;
+            return; // 🛑 Para aqui e NÃO faz o AppImage!
         }
 
         // --- Fluxo Padrão de Geração de AppImage no Windows Host ---
@@ -442,7 +420,7 @@ void compilarProjeto(const char* nome, int modoDebug) {
             sprintf(cmdRtDl, "powershell -Command \"$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-x86_64' -OutFile '%s\\tools\\runtime-x86_64'\"", pathPrefixo);
             system(cmdRtDl);
         } else {
-            fclose(fWine); // Correção de segurança de descritor
+            fclose(fRuntime);
         }
 
         printf("[7/7] Empacotando AppImage...\n");
@@ -469,13 +447,13 @@ void compilarProjeto(const char* nome, int modoDebug) {
         printf("======================================================\n");
 
         printf("\n🚀 [AUTO-RUN] Executando binário sem console por padrão...\n");
-        char cmdRunWin[1024];
+        char cmdRunWinEnd[1024];
         if (strcmp(nome, ".") == 0) {
-            sprintf(cmdRunWin, "\"%s\"", arquivoSaida);
+            sprintf(cmdRunWinEnd, "\"%s\"", arquivoSaida);
         } else {
-            sprintf(cmdRunWin, "cd \"%s\" && \"output\\%s.exe\"", pathPrefixo, nomeExecutavel);
+            sprintf(cmdRunWinEnd, "cd \"%s\" && \"output\\%s.exe\"", pathPrefixo, nomeExecutavel);
         }
-        system(cmdRunWin);
+        system(cmdRunWinEnd);
     } else {
         printf("❌ Erro durante o build local do Windows.\n");
     }
@@ -514,10 +492,11 @@ void compilarProjeto(const char* nome, int modoDebug) {
             subsistemaLinux, pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
     int r2 = system(cmdGcc);
 
-    if (modoDebug) {
+    // 🌟 NOVA LÓGICA: Se for `run` ou `debug` no Linux, para por aqui e não monta SquashFS
+    if (modoDebug || !gerarAppImage) {
         if (r1 == 0 && r2 == 0) {
-            printf("✅ [Sucesso] Compilação do módulo de depuração efetuada.\n");
-            printf("🚀 [DEBUG-RUN] Inicializando instância do Wine acoplada ao terminal atual...\n");
+            printf("✅ [Sucesso] Compilação %s efetuada.\n", modoDebug ? "de depuração" : "rápida");
+            printf("🚀 [%s] Inicializando instância do Wine acoplada ao terminal atual...\n", modoDebug ? "DEBUG-RUN" : "FAST-RUN");
             char cmdRunLinux[1024];
             if (strcmp(nome, ".") == 0) {
                 sprintf(cmdRunLinux, "wine %s", arquivoSaida);
@@ -526,9 +505,9 @@ void compilarProjeto(const char* nome, int modoDebug) {
             }
             system(cmdRunLinux);
         } else {
-            printf("❌ Erro ao compilar a árvore em modo debug.\n");
+            printf("❌ Erro ao compilar a árvore em modo %s.\n", modoDebug ? "debug" : "rápido");
         }
-        return; // Finaliza aqui para ignorar a montagem do AppImage
+        return; // 🛑 Finaliza aqui para ignorar a montagem do AppImage!
     }
 
     printf("📦 [3/3] Gerando Empacotamento Estável AppImage...\n");
@@ -634,15 +613,18 @@ int main(int argc, char* argv[]) {
     } 
     else if (strcmp(argv[1], "build") == 0) {
         const char* projetoAlvo = (argc < 3) ? "." : argv[2];
-        compilarProjeto(projetoAlvo, 0); // Modo normal: compila e gera AppImage
+        // Modo build: MODO_DEBUG = 0 | GERAR_APPIMAGE = 1
+        compilarProjeto(projetoAlvo, 0, 1); 
     }
     else if (strcmp(argv[1], "run") == 0) {
         const char* projetoAlvo = (argc < 3) ? "." : argv[2];
-        executarDireto(projetoAlvo);     // Executa sem buildar nada
+        // Modo run (Fast Run): MODO_DEBUG = 0 | GERAR_APPIMAGE = 0 (Pula o AppImage!)
+        compilarProjeto(projetoAlvo, 0, 0); 
     }
     else if (strcmp(argv[1], "debug") == 0) {
         const char* projetoAlvo = (argc < 3) ? "." : argv[2];
-        compilarProjeto(projetoAlvo, 1); // Modo debug: ativa subsystem console e roda direto
+        // Modo debug: MODO_DEBUG = 1 | GERAR_APPIMAGE = 0
+        compilarProjeto(projetoAlvo, 1, 0); 
     }
     else if (strcmp(argv[1], "deploy") == 0) {
         const char* projetoAlvo = (argc < 3) ? "." : argv[2];
