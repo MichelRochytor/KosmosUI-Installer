@@ -182,7 +182,7 @@ void criarProjeto(const char* nome) {
     printf("👉 Execute: kosmos run \"%s\" para compilar e testar rapidamente.\n", nome);
 }
 
-// 🌟 NOVA ASSINATURA: Agora recebe `gerarAppImage` para saber se vai empacotar tudo no final
+// 🌟 ASSINATURA: Recebe `gerarAppImage` para saber se vai empacotar tudo no final
 void compilarProjeto(const char* nome, int modoDebug, int gerarAppImage) {
     checarEInstalarCompilador();
 
@@ -196,7 +196,8 @@ void compilarProjeto(const char* nome, int modoDebug, int gerarAppImage) {
         sprintf(pastaResource, "resource");
         sprintf(pastaKosmos, "tools\\kosmos");
         sprintf(pastaMsys, "tools\\msys");
-        sprintf(arquivoMain, "src\\main.c");
+        // 🌟 WILDCARD: Pega qualquer .c dentro de src
+        sprintf(arquivoMain, "\"src\"\\*.c"); 
         sprintf(arquivoCore, "tools\\kosmos\\kosmos.c");
         sprintf(arquivoObjeto, "output\\resource.o");
         sprintf(arquivoSaida, "output\\%s.exe", nomeExecutavel);
@@ -205,7 +206,8 @@ void compilarProjeto(const char* nome, int modoDebug, int gerarAppImage) {
         sprintf(pastaResource, "%s\\resource", nome);
         sprintf(pastaKosmos, "%s\\tools\\kosmos", nome);
         sprintf(pastaMsys, "%s\\tools\\msys", nome);
-        sprintf(arquivoMain, "%s\\src\\main.c", nome);
+        // 🌟 WILDCARD: Pega qualquer .c dentro de src do projeto (espaços protegidos nas aspas iniciais)
+        sprintf(arquivoMain, "\"%s\\src\"\\*.c", nome); 
         sprintf(arquivoCore, "%s\\tools\\kosmos\\kosmos.c", nome);
         sprintf(arquivoObjeto, "%s\\output\\resource.o", nome);
         sprintf(arquivoSaida, "%s\\output\\%s.exe", nome, nomeExecutavel);
@@ -216,7 +218,8 @@ void compilarProjeto(const char* nome, int modoDebug, int gerarAppImage) {
         sprintf(pastaResource, "resource");
         sprintf(pastaKosmos, "tools/kosmos");
         sprintf(pastaMsys, "tools/msys");
-        sprintf(arquivoMain, "src/main.c");
+        // 🌟 WILDCARD NO LINUX
+        sprintf(arquivoMain, "\"src\"/*.c"); 
         sprintf(arquivoCore, "tools/kosmos/kosmos.c");
         sprintf(arquivoObjeto, "output/resource.o");
         sprintf(arquivoSaida, "output/%s.exe", nomeExecutavel);
@@ -225,7 +228,8 @@ void compilarProjeto(const char* nome, int modoDebug, int gerarAppImage) {
         sprintf(pastaResource, "%s/resource", nome);
         sprintf(pastaKosmos, "%s/tools/kosmos", nome);
         sprintf(pastaMsys, "%s/tools/msys", nome);
-        sprintf(arquivoMain, "%s/src/main.c", nome);
+        // 🌟 WILDCARD NO LINUX
+        sprintf(arquivoMain, "\"%s/src\"/*.c", nome); 
         sprintf(arquivoCore, "%s/tools/kosmos/kosmos.c", nome);
         sprintf(arquivoObjeto, "%s/output/resource.o", nome);
         sprintf(arquivoSaida, "%s/output/%s.exe", nome, nomeExecutavel);
@@ -290,10 +294,12 @@ void compilarProjeto(const char* nome, int modoDebug, int gerarAppImage) {
     // Se modoDebug = 1, usa o subsistema 'console', senão remove o terminal usando o padrão 'windows'
     const char* subsistema = modoDebug ? "console" : "windows";
     
-    sprintf(cmdWin, "gcc -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -Wl,--subsystem,%s -municode -lcomdlg32", 
+    // 🌟 ATENÇÃO AQUI: Retirei as aspas \" em volta do %s do arquivoMain para o wildcard (*.c) funcionar no CMD/Shell!
+    // 🌟 ATENÇÃO AQUI 2: Adicionado -lm no final da string para a biblioteca math.h funcionar
+    sprintf(cmdWin, "gcc -O2 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -I \"%s\" -I \"%s\" %s \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -Wl,--subsystem,%s -municode -lcomdlg32 -lm", 
             pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida, subsistema);
     
-    printf("⚙️  Vinculando binários e injetando tabelas de símbolos estáticos...\n");
+    printf("⚙️  Vinculando binários da árvore de arquivos (*.c)...\n");
     int res = system(cmdWin);
     
     if (res == 0) {
@@ -488,14 +494,16 @@ void compilarProjeto(const char* nome, int modoDebug, int gerarAppImage) {
     char cmdGcc[4096];
     const char* subsistemaLinux = modoDebug ? "console" : "windows";
 
-    sprintf(cmdGcc, "/usr/bin/x86_64-w64-mingw32-gcc -mwindows -g -Wall -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -Wl,--subsystem,%s -municode -I \"%s\" -I \"%s\" \"%s\" \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -lcomdlg32", 
+    // 🌟 ATENÇÃO AQUI: Retirei as aspas \" em volta do %s do arquivoMain para o wildcard (*.c) funcionar no Bash!
+    // 🌟 ATENÇÃO AQUI 2: Adicionado -lm no final da string para a biblioteca math.h funcionar
+    sprintf(cmdGcc, "/usr/bin/x86_64-w64-mingw32-gcc -mwindows -g -Wall -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00 -DUNICODE -D_UNICODE -Wl,--subsystem,%s -municode -I \"%s\" -I \"%s\" %s \"%s\" \"%s\" -o \"%s\" -lcomctl32 -lshcore -lgdi32 -luser32 -lshlwapi -lgdiplus -static-libgcc -static-libstdc++ -lcomdlg32 -lm", 
             subsistemaLinux, pastaResource, pastaKosmos, arquivoMain, arquivoCore, arquivoObjeto, arquivoSaida);
     int r2 = system(cmdGcc);
 
     // 🌟 NOVA LÓGICA: Se for `run` ou `debug` no Linux, para por aqui e não monta SquashFS
     if (modoDebug || !gerarAppImage) {
         if (r1 == 0 && r2 == 0) {
-            printf("✅ [Sucesso] Compilação %s efetuada.\n", modoDebug ? "de depuração" : "rápida");
+            printf("✅ [Sucesso] Compilação %s efetuada (Árvore *.c montada).\n", modoDebug ? "de depuração" : "rápida");
             printf("🚀 [%s] Inicializando instância do Wine acoplada ao terminal atual...\n", modoDebug ? "DEBUG-RUN" : "FAST-RUN");
             char cmdRunLinux[1024];
             if (strcmp(nome, ".") == 0) {
